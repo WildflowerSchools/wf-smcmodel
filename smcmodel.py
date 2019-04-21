@@ -48,18 +48,20 @@ class SMCModelGeneralTensorflow:
                 name = 'time',
                 dtype = tf.float32,
                 initializer = initial_time)
-            state = {}
-            for variable_name, variable_info in self.state_structure.items():
-                state[variable_name] = tf.get_variable(
-                    name = variable_name,
-                    dtype = variable_info['dtype'],
-                    initializer = initial_state[variable_name])
-            observation={}
-            for variable_name, variable_info in self.observation_structure.items():
-                observation[variable_name] = tf.get_variable(
-                    name = variable_name,
-                    dtype = variable_info['dtype'],
-                    initializer = initial_observation[variable_name])
+            state = _define_variables(self.state_structure, initial_state)
+            # state = {}
+            # for variable_name, variable_info in self.state_structure.items():
+            #     state[variable_name] = tf.get_variable(
+            #         name = variable_name,
+            #         dtype = variable_info['dtype'],
+            #         initializer = initial_state[variable_name])
+            observation = _define_variables(self.observation_structure, initial_observation)
+            # observation={}
+            # for variable_name, variable_info in self.observation_structure.items():
+            #     observation[variable_name] = tf.get_variable(
+            #         name = variable_name,
+            #         dtype = variable_info['dtype'],
+            #         initializer = initial_observation[variable_name])
             init = tf.global_variables_initializer()
             timestamps_dataset = tf.data.Dataset.from_tensor_slices(timestamps[1:])
             timestamps_iterator = timestamps_dataset.make_one_shot_iterator()
@@ -76,12 +78,22 @@ class SMCModelGeneralTensorflow:
             control_dependencies = [next_time] + list(next_state.values()) + list(next_observation.values())
             with tf.control_dependencies(control_dependencies):
                 assign_time = time.assign(next_time)
-                assign_state = {}
-                for variable_name in self.state_structure.keys():
-                    assign_state[variable_name] = state[variable_name].assign(next_state[variable_name])
-                assign_observation = {}
-                for variable_name in self.observation_structure.keys():
-                    assign_observation[variable_name] = observation[variable_name].assign(next_observation[variable_name])
+                assign_state = _assign_variables(
+                    self.state_structure,
+                    state,
+                    next_state
+                )
+                # assign_state = {}
+                # for variable_name in self.state_structure.keys():
+                #     assign_state[variable_name] = state[variable_name].assign(next_state[variable_name])
+                assign_observation = _assign_variables(
+                    self.observation_structure,
+                    observation,
+                    next_observation
+                )
+                # assign_observation = {}
+                # for variable_name in self.observation_structure.keys():
+                #     assign_observation[variable_name] = observation[variable_name].assign(next_observation[variable_name])
         with tf.Session(graph=simulation_graph) as sess:
             sess.run(init)
             initial_time, initial_state, initial_observation = sess.run([time, state, observation])
@@ -96,3 +108,18 @@ class SMCModelGeneralTensorflow:
                 for variable_name in self.observation_structure.keys():
                     observation_trajectory[variable_name][timestamp_index] = next_observation[variable_name]
         return state_trajectory, observation_trajectory
+
+def _define_variables(structure, initial_values):
+    variable_dict = {}
+    for variable_name, variable_info in structure.items():
+        variable_dict[variable_name] = tf.get_variable(
+            name = variable_name,
+            dtype = variable_info['dtype'],
+            initializer = initial_values[variable_name])
+    return variable_dict
+
+def _assign_variables(structure, variables, values):
+    assign_dict = {}
+    for variable_name in structure.keys():
+        assign_dict[variable_name] = variables[variable_name].assign(values[variable_name])
+    return assign_dict
