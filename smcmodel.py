@@ -49,19 +49,7 @@ class SMCModelGeneralTensorflow:
                 dtype = tf.float32,
                 initializer = initial_time)
             state = _define_variables(self.state_structure, initial_state)
-            # state = {}
-            # for variable_name, variable_info in self.state_structure.items():
-            #     state[variable_name] = tf.get_variable(
-            #         name = variable_name,
-            #         dtype = variable_info['dtype'],
-            #         initializer = initial_state[variable_name])
             observation = _define_variables(self.observation_structure, initial_observation)
-            # observation={}
-            # for variable_name, variable_info in self.observation_structure.items():
-            #     observation[variable_name] = tf.get_variable(
-            #         name = variable_name,
-            #         dtype = variable_info['dtype'],
-            #         initializer = initial_observation[variable_name])
             init = tf.global_variables_initializer()
             timestamps_dataset = tf.data.Dataset.from_tensor_slices(timestamps[1:])
             timestamps_iterator = timestamps_dataset.make_one_shot_iterator()
@@ -83,17 +71,11 @@ class SMCModelGeneralTensorflow:
                     state,
                     next_state
                 )
-                # assign_state = {}
-                # for variable_name in self.state_structure.keys():
-                #     assign_state[variable_name] = state[variable_name].assign(next_state[variable_name])
                 assign_observation = _assign_variables(
                     self.observation_structure,
                     observation,
                     next_observation
                 )
-                # assign_observation = {}
-                # for variable_name in self.observation_structure.keys():
-                #     assign_observation[variable_name] = observation[variable_name].assign(next_observation[variable_name])
         with tf.Session(graph=simulation_graph) as sess:
             sess.run(init)
             initial_time, initial_state, initial_observation = sess.run([time, state, observation])
