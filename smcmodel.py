@@ -23,21 +23,6 @@ class SMCModelGeneralTensorflow:
         self.observation_model_pdf = observation_model_pdf
 
     def simulate(self, timestamps):
-        num_timestamps = timestamps.shape[0]
-        state_trajectory = {
-            variable_name: np.zeros(
-                (num_timestamps, 1) + tuple(variable_info['shape'])
-            )
-            for variable_name, variable_info
-            in self.state_structure.items()
-        }
-        observation_trajectory = {
-            variable_name: np.zeros(
-                (num_timestamps, 1) + tuple(variable_info['shape'])
-            )
-            for variable_name, variable_info
-            in self.observation_structure.items()
-        }
         simulation_graph = tf.Graph()
         with simulation_graph.as_default():
             parameters = self.parameter_model_sample()
@@ -76,19 +61,34 @@ class SMCModelGeneralTensorflow:
                     observation,
                     next_observation
                 )
+        num_timestamps = timestamps.shape[0]
         with tf.Session(graph=simulation_graph) as sess:
             sess.run(init)
             initial_time, initial_state, initial_observation = sess.run([time, state, observation])
-            for variable_name in self.state_structure.keys():
-                state_trajectory[variable_name][0] = initial_state[variable_name]
-            for variable_name in self.observation_structure.keys():
-                observation_trajectory[variable_name][0] = initial_observation[variable_name]
+            state_trajectory = _initialize_trajectory(
+                num_timestamps,
+                self.state_structure,
+                initial_state
+            )
+            observation_trajectory = _initialize_trajectory(
+                num_timestamps,
+                self.observation_structure,
+                initial_observation
+            )
             for timestamp_index in range(1, num_timestamps):
                 next_time, next_state, next_observation = sess.run([assign_time, assign_state, assign_observation])
-                for variable_name in self.state_structure.keys():
-                    state_trajectory[variable_name][timestamp_index] = next_state[variable_name]
-                for variable_name in self.observation_structure.keys():
-                    observation_trajectory[variable_name][timestamp_index] = next_observation[variable_name]
+                state_trajectory = _extend_trajectory(
+                    state_trajectory,
+                    timestamp_index,
+                    self.state_structure,
+                    next_state
+                )
+                observation_trajectory = _extend_trajectory(
+                    observation_trajectory,
+                    timestamp_index,
+                    self.observation_structure,
+                    next_observation
+                )
         return state_trajectory, observation_trajectory
 
 def _define_variables(structure, initial_values):
@@ -105,3 +105,20 @@ def _assign_variables(structure, variables, values):
     for variable_name in structure.keys():
         assign_dict[variable_name] = variables[variable_name].assign(values[variable_name])
     return assign_dict
+
+def _initialize_trajectory(num_timestamps, structure, initial_values):
+    trajectory = {
+        variable_name: np.zeros(
+            (num_timestamps, 1) + tuple(variable_info['shape'])
+        )
+        for variable_name, variable_info
+        in structure.items()
+    }
+    for variable_name in structure.keys():
+        trajectory[variable_name][0] = initial_values[variable_name]
+    return trajectory
+
+def _extend_trajectory(trajectory, timestamp_index, structure, values):
+    for variable_name in structure.keys():
+        trajectory[variable_name][timestamp_index] = values[variable_name]
+    return trajectory
