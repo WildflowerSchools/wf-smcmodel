@@ -33,8 +33,8 @@ class SMCModelGeneralTensorflow:
                 name = 'time',
                 dtype = tf.float32,
                 initializer = initial_time)
-            state = _define_variables(self.state_structure, initial_state)
-            observation = _define_variables(self.observation_structure, initial_observation)
+            state = _get_variable_dict(self.state_structure, initial_state)
+            observation = _get_variable_dict(self.observation_structure, initial_observation)
             init = tf.global_variables_initializer()
             timestamps_dataset = tf.data.Dataset.from_tensor_slices(timestamps[1:])
             timestamps_iterator = timestamps_dataset.make_one_shot_iterator()
@@ -51,12 +51,12 @@ class SMCModelGeneralTensorflow:
             control_dependencies = [next_time] + _tensor_list(next_state) + _tensor_list(next_observation)
             with tf.control_dependencies(control_dependencies):
                 assign_time = time.assign(next_time)
-                assign_state = _assign_variables(
+                assign_state = _variable_dict_assign(
                     self.state_structure,
                     state,
                     next_state
                 )
-                assign_observation = _assign_variables(
+                assign_observation = _variable_dict_assign(
                     self.observation_structure,
                     observation,
                     next_observation
@@ -102,7 +102,7 @@ class SMCModelGeneralTensorflow:
         with state_trajectory_estimation_graph.as_default():
             parameters = self.parameter_model_sample()
             initial_time = tf.constant(timestamps[0], dtype=tf.float32)
-            observation_trajectory_iterators = _define_iterators(
+            observation_trajectory_iterators = _make_iterator_dict(
                 self.observation_structure,
                 observation_trajectory
             )
@@ -110,7 +110,7 @@ class SMCModelGeneralTensorflow:
                 num_particles,
                 parameters
             )
-            initial_observation = _next_value(
+            initial_observation = _iterator_dict_get_next(
                 self.observation_structure,
                 observation_trajectory_iterators
             )
@@ -123,7 +123,7 @@ class SMCModelGeneralTensorflow:
                 dtype = tf.float32,
                 initializer = initial_time
             )
-            state = _define_variables(self.state_structure, initial_state)
+            state = _get_variable_dict(self.state_structure, initial_state)
             log_weights = tf.get_variable(
                 name='log_weights',
                 dtype = tf.float32,
@@ -132,7 +132,7 @@ class SMCModelGeneralTensorflow:
             init = tf.global_variables_initializer()
             timestamps_dataset = tf.data.Dataset.from_tensor_slices(timestamps[1:])
             timestamps_iterator = timestamps_dataset.make_one_shot_iterator()
-            observation_trajectory_iterators = _define_iterators(
+            observation_trajectory_iterators = _make_iterator_dict(
                 self.observation_structure,
                 observation_trajectory
             )
@@ -140,7 +140,7 @@ class SMCModelGeneralTensorflow:
             current_state = state
             current_log_weights = log_weights
             next_time = timestamps_iterator.get_next()
-            next_observation = _next_value(
+            next_observation = _iterator_dict_get_next(
                 self.observation_structure,
                 observation_trajectory_iterators)
             resample_indices = tf.squeeze(
@@ -166,7 +166,7 @@ class SMCModelGeneralTensorflow:
             control_dependencies = [next_time, next_log_weights] + _tensor_list(next_state)
             with tf.control_dependencies(control_dependencies):
                 assign_time = time.assign(next_time)
-                assign_state = _assign_variables(
+                assign_state = _variable_dict_assign(
                     self.state_structure,
                     state,
                     next_state
@@ -195,7 +195,7 @@ class SMCModelGeneralTensorflow:
                 log_weights_trajectory[timestamp_index] = next_log_weights
         return state_trajectory, log_weights_trajectory
 
-def _define_variables(structure, initial_values):
+def _get_variable_dict(structure, initial_values):
     variable_dict = {}
     for variable_name, variable_info in structure.items():
         variable_dict[variable_name] = tf.get_variable(
@@ -204,11 +204,41 @@ def _define_variables(structure, initial_values):
             initializer = initial_values[variable_name])
     return variable_dict
 
-def _assign_variables(structure, variables, values):
+def _variable_dict_assign(structure, variable_dict, values):
     assign_dict = {}
     for variable_name in structure.keys():
-        assign_dict[variable_name] = variables[variable_name].assign(values[variable_name])
+        assign_dict[variable_name] = variable_dict[variable_name].assign(values[variable_name])
     return assign_dict
+
+def _make_iterator_dict(structure, array_dict):
+    iterator_dict={}
+    for variable_name in structure.keys():
+        dataset = tf.data.Dataset.from_tensor_slices(
+            np.asarray(
+                array_dict[variable_name],
+                dtype=np.float32
+            )
+        )
+        iterator_dict[variable_name] = dataset.make_one_shot_iterator()
+    return iterator_dict
+
+def _iterator_dict_get_next(structure, iterator_dict):
+    tensor_dict = {}
+    for variable_name in structure.keys():
+        tensor_dict[variable_name] = iterator_dict[variable_name].get_next()
+    return tensor_dict
+
+def _resample_tensor_dict(structure, tensor_dict, resample_indices):
+    tensor_dict_resampled = {}
+    for variable_name in structure.keys():
+        tensor_dict_resampled[variable_name] = tf.gather(
+            tensor_dict[variable_name],
+            resample_indices
+        )
+    return tensor_dict_resampled
+
+def _tensor_list(tensor_dict):
+    return list(tensor_dict.values())
 
 def _initialize_trajectory(num_timestamps, num_samples, structure, initial_values):
     trajectory = {
@@ -226,33 +256,3 @@ def _extend_trajectory(trajectory, timestamp_index, structure, values):
     for variable_name in structure.keys():
         trajectory[variable_name][timestamp_index] = values[variable_name]
     return trajectory
-
-def _define_iterators(structure, value_trajectory):
-    iterators={}
-    for variable_name in structure.keys():
-        dataset = tf.data.Dataset.from_tensor_slices(
-            np.asarray(
-                value_trajectory[variable_name],
-                dtype=np.float32
-            )
-        )
-        iterators[variable_name] = dataset.make_one_shot_iterator()
-    return iterators
-
-def _next_value(structure, iterators):
-    next_value = {}
-    for variable_name in structure.keys():
-        next_value[variable_name] = iterators[variable_name].get_next()
-    return next_value
-
-def _resample_tensor_dict(structure, tensor_dict, resample_indices):
-    tensor_dict_resampled = {}
-    for variable_name in structure.keys():
-        tensor_dict_resampled[variable_name] = tf.gather(
-            tensor_dict[variable_name],
-            resample_indices
-        )
-    return tensor_dict_resampled
-
-def _tensor_list(tensor_dict):
-    return list(tensor_dict.values())

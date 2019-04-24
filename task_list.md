@@ -1,7 +1,5 @@
 # Task list
 
-* Add helper function to convert tensor_dict to tensor_list (for control dependencies)
-* Regularize naming of helper functions and their arguments
 * Regularize naming between simulate() and estimate_state_trajectory()
 * Use iterator for initial value rather than splitting it off
 * Eliminate Python variables we don't need (e.g., current_state, etc.)
