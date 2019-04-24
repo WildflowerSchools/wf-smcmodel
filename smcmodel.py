@@ -38,13 +38,10 @@ class SMCModelGeneralTensorflow:
             init = tf.global_variables_initializer()
             timestamps_dataset = tf.data.Dataset.from_tensor_slices(timestamps[1:])
             timestamps_iterator = timestamps_dataset.make_one_shot_iterator()
-            current_time = time
-            current_state = state
-            current_observation = observation
             next_time = timestamps_iterator.get_next()
             next_state = self.transition_model_sample(
-                current_state,
-                current_time,
+                state,
+                time,
                 next_time,
                 parameters)
             next_observation = self.observation_model_sample(next_state, parameters)
@@ -136,9 +133,6 @@ class SMCModelGeneralTensorflow:
                 self.observation_structure,
                 observation_trajectory
             )
-            current_time = time
-            current_state = state
-            current_log_weights = log_weights
             next_time = timestamps_iterator.get_next()
             next_observation = _iterator_dict_get_next(
                 self.observation_structure,
@@ -149,13 +143,13 @@ class SMCModelGeneralTensorflow:
                     num_particles
                 )
             )
-            current_state_resampled = _resample_tensor_dict(
+            state_resampled = _resample_tensor_dict(
                 self.state_structure,
-                current_state,
+                state,
                 resample_indices)
             next_state = self.transition_model_sample(
-                current_state_resampled,
-                current_time,
+                state_resampled,
+                time,
                 next_time,
                 parameters
             )
