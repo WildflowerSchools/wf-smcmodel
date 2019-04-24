@@ -48,7 +48,7 @@ class SMCModelGeneralTensorflow:
                 next_time,
                 parameters)
             next_observation = self.observation_model_sample(next_state, parameters)
-            control_dependencies = [next_time] + list(next_state.values()) + list(next_observation.values())
+            control_dependencies = [next_time] + _tensor_list(next_state) + _tensor_list(next_observation)
             with tf.control_dependencies(control_dependencies):
                 assign_time = time.assign(next_time)
                 assign_state = _assign_variables(
@@ -163,7 +163,7 @@ class SMCModelGeneralTensorflow:
                 next_state,
                 next_observation,
                 parameters)
-            control_dependencies = [next_time, next_log_weights] + list(next_state.values())
+            control_dependencies = [next_time, next_log_weights] + _tensor_list(next_state)
             with tf.control_dependencies(control_dependencies):
                 assign_time = time.assign(next_time)
                 assign_state = _assign_variables(
@@ -253,3 +253,6 @@ def _resample_tensor_dict(structure, tensor_dict, resample_indices):
             resample_indices
         )
     return tensor_dict_resampled
+
+def _tensor_list(tensor_dict):
+    return list(tensor_dict.values())
