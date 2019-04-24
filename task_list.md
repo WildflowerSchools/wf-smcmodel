@@ -1,6 +1,5 @@
 # Task list
 
-* Use iterator for initial value rather than splitting it off
 * Eliminate variables we don't need in simulate() and estimate_state_trajectory()
 * Consider adding num_samples argument to simulate()
 * Reconsider handline of timestamps (should be datetime objects rather than floats?)

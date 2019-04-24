@@ -26,7 +26,8 @@ class SMCModelGeneralTensorflow:
         simulation_graph = tf.Graph()
         with simulation_graph.as_default():
             parameters = self.parameter_model_sample()
-            initial_time = tf.constant(timestamps[0], dtype=tf.float32)
+            timestamps_iterator = tf.data.Dataset.from_tensor_slices(timestamps).make_one_shot_iterator()
+            initial_time = timestamps_iterator.get_next()
             initial_state = self.initial_model_sample(1, parameters)
             initial_observation = self.observation_model_sample(initial_state, parameters)
             time = tf.get_variable(
@@ -36,8 +37,6 @@ class SMCModelGeneralTensorflow:
             state = _get_variable_dict(self.state_structure, initial_state)
             observation = _get_variable_dict(self.observation_structure, initial_observation)
             init = tf.global_variables_initializer()
-            timestamps_dataset = tf.data.Dataset.from_tensor_slices(timestamps[1:])
-            timestamps_iterator = timestamps_dataset.make_one_shot_iterator()
             next_time = timestamps_iterator.get_next()
             next_state = self.transition_model_sample(
                 state,
@@ -98,18 +97,19 @@ class SMCModelGeneralTensorflow:
         state_trajectory_estimation_graph = tf.Graph()
         with state_trajectory_estimation_graph.as_default():
             parameters = self.parameter_model_sample()
-            initial_time = tf.constant(timestamps[0], dtype=tf.float32)
-            observation_trajectory_iterators = _make_iterator_dict(
+            timestamps_iterator = tf.data.Dataset.from_tensor_slices(timestamps).make_one_shot_iterator()
+            observation_trajectory_iterator_dict = _make_iterator_dict(
                 self.observation_structure,
                 observation_trajectory
             )
+            initial_time = timestamps_iterator.get_next()
             initial_state = self.initial_model_sample(
                 num_particles,
                 parameters
             )
             initial_observation = _iterator_dict_get_next(
                 self.observation_structure,
-                observation_trajectory_iterators
+                observation_trajectory_iterator_dict
             )
             initial_log_weights = self.observation_model_pdf(
                 initial_state,
@@ -127,16 +127,6 @@ class SMCModelGeneralTensorflow:
                 initializer = initial_log_weights
             )
             init = tf.global_variables_initializer()
-            timestamps_dataset = tf.data.Dataset.from_tensor_slices(timestamps[1:])
-            timestamps_iterator = timestamps_dataset.make_one_shot_iterator()
-            observation_trajectory_iterators = _make_iterator_dict(
-                self.observation_structure,
-                observation_trajectory
-            )
-            next_time = timestamps_iterator.get_next()
-            next_observation = _iterator_dict_get_next(
-                self.observation_structure,
-                observation_trajectory_iterators)
             resample_indices = tf.squeeze(
                 tf.random.categorical(
                     [log_weights],
@@ -147,12 +137,16 @@ class SMCModelGeneralTensorflow:
                 self.state_structure,
                 state,
                 resample_indices)
+            next_time = timestamps_iterator.get_next()
             next_state = self.transition_model_sample(
                 state_resampled,
                 time,
                 next_time,
                 parameters
             )
+            next_observation = _iterator_dict_get_next(
+                self.observation_structure,
+                observation_trajectory_iterator_dict)
             next_log_weights = self.observation_model_pdf(
                 next_state,
                 next_observation,
