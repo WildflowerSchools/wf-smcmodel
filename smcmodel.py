@@ -22,7 +22,7 @@ class SMCModelGeneralTensorflow:
         self.observation_model_sample = observation_model_sample
         self.observation_model_pdf = observation_model_pdf
 
-    def simulate(self, timestamps):
+    def simulate_trajectory(self, timestamps):
         simulation_graph = tf.Graph()
         with simulation_graph.as_default():
             parameters = self.parameter_model_sample()
