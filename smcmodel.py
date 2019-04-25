@@ -23,20 +23,26 @@ class SMCModelGeneralTensorflow:
         self.observation_model_pdf = observation_model_pdf
 
     def simulate_trajectory(self, timestamps):
+        # Build the dataflow graph
         simulation_graph = tf.Graph()
         with simulation_graph.as_default():
+            # Sample the global parameters
             parameters = self.parameter_model_sample()
+            # Calculate the initial values for the persistent variables
             timestamps_iterator = tf.data.Dataset.from_tensor_slices(timestamps).make_one_shot_iterator()
             initial_time = timestamps_iterator.get_next()
             initial_state = self.initial_model_sample(1, parameters)
             initial_observation = self.observation_model_sample(initial_state, parameters)
+            # Define the persistent variables
             time = tf.get_variable(
                 name = 'time',
                 dtype = tf.float32,
                 initializer = initial_time)
             state = _get_variable_dict(self.state_structure, initial_state)
             observation = _get_variable_dict(self.observation_structure, initial_observation)
+            # Initialize the persistent variables
             init = tf.global_variables_initializer()
+            # Calculate the next time step in the simulation
             next_time = timestamps_iterator.get_next()
             next_state = self.transition_model_sample(
                 state,
@@ -44,6 +50,7 @@ class SMCModelGeneralTensorflow:
                 next_time,
                 parameters)
             next_observation = self.observation_model_sample(next_state, parameters)
+            # Assign these values to the persistent variables so they become the inputs for the next time step
             control_dependencies = [next_time] + _tensor_list(next_state) + _tensor_list(next_observation)
             with tf.control_dependencies(control_dependencies):
                 assign_time = time.assign(next_time)
@@ -57,9 +64,12 @@ class SMCModelGeneralTensorflow:
                     observation,
                     next_observation
                 )
+        # Run the calcuations using the graph above
         num_timestamps = timestamps.shape[0]
         with tf.Session(graph=simulation_graph) as sess:
+            # Initialize the persistent variables
             sess.run(init)
+            # Calculate and store the initial state and initial observation
             initial_time, initial_state, initial_observation = sess.run([time, state, observation])
             state_trajectory = _initialize_trajectory(
                 num_timestamps,
@@ -73,6 +83,7 @@ class SMCModelGeneralTensorflow:
                 self.observation_structure,
                 initial_observation
             )
+            # Calculate and store the state and observation for all subsequent time steps
             for timestamp_index in range(1, num_timestamps):
                 next_time, next_state, next_observation = sess.run([assign_time, assign_state, assign_observation])
                 state_trajectory = _extend_trajectory(
@@ -94,9 +105,12 @@ class SMCModelGeneralTensorflow:
         num_particles,
         timestamps,
         observation_trajectory):
+        # Build the dataflow graph
         state_trajectory_estimation_graph = tf.Graph()
         with state_trajectory_estimation_graph.as_default():
+            # Sample the global parameters
             parameters = self.parameter_model_sample()
+            # Calculate the initial values for the persistent variables
             timestamps_iterator = tf.data.Dataset.from_tensor_slices(timestamps).make_one_shot_iterator()
             observation_trajectory_iterator_dict = _make_iterator_dict(
                 self.observation_structure,
@@ -115,6 +129,7 @@ class SMCModelGeneralTensorflow:
                 initial_state,
                 initial_observation,
                 parameters)
+            # Define the persistent variables
             time = tf.get_variable(
                 name = 'time',
                 dtype = tf.float32,
@@ -126,7 +141,9 @@ class SMCModelGeneralTensorflow:
                 dtype = tf.float32,
                 initializer = initial_log_weights
             )
+            # Initialize the persistent variables
             init = tf.global_variables_initializer()
+            # Calculate the state samples and log weights for the next time step
             resample_indices = tf.squeeze(
                 tf.random.categorical(
                     [log_weights],
@@ -151,6 +168,7 @@ class SMCModelGeneralTensorflow:
                 next_state,
                 next_observation,
                 parameters)
+            # Assign these values to the persistent variables so they become the inputs for the next time step
             control_dependencies = [next_time, next_log_weights] + _tensor_list(next_state)
             with tf.control_dependencies(control_dependencies):
                 assign_time = time.assign(next_time)
@@ -160,9 +178,12 @@ class SMCModelGeneralTensorflow:
                     next_state
                 )
                 assign_log_weights = log_weights.assign(next_log_weights)
+        # Run the calcuations using the graph above
         num_timestamps = timestamps.shape[0]
         with tf.Session(graph=state_trajectory_estimation_graph) as sess:
+            # Initialize the persistent variables
             sess.run(init)
+            # Calculate and store the initial state samples and log weights
             initial_time, initial_state, initial_log_weights = sess.run([time, state, log_weights])
             state_trajectory = _initialize_trajectory(
                 num_timestamps,
@@ -172,6 +193,7 @@ class SMCModelGeneralTensorflow:
             )
             log_weights_trajectory = np.zeros((num_timestamps, num_particles))
             log_weights_trajectory[0] = initial_log_weights
+            # Calculate and store the state samples and log weights for all subsequent time steps
             for timestamp_index in range(1, num_timestamps):
                 next_time, next_state, next_log_weights = sess.run([assign_time, assign_state, assign_log_weights])
                 state_trajectory = _extend_trajectory(
