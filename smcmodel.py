@@ -39,7 +39,6 @@ class SMCModelGeneralTensorflow:
                 dtype = tf.float32,
                 initializer = initial_time)
             state = _get_variable_dict(self.state_structure, initial_state)
-            observation = _get_variable_dict(self.observation_structure, initial_observation)
             # Initialize the persistent variables
             init = tf.global_variables_initializer()
             # Calculate the next time step in the simulation
@@ -59,44 +58,39 @@ class SMCModelGeneralTensorflow:
                     state,
                     next_state
                 )
-                assign_observation = _variable_dict_assign(
-                    self.observation_structure,
-                    observation,
-                    next_observation
-                )
         # Run the calcuations using the graph above
         num_timestamps = timestamps.shape[0]
         with tf.Session(graph=simulation_graph) as sess:
             # Initialize the persistent variables
             sess.run(init)
             # Calculate and store the initial state and initial observation
-            initial_time, initial_state, initial_observation = sess.run([time, state, observation])
+            initial_time_value, initial_state_value, initial_observation_value = sess.run([time, state, initial_observation])
             state_trajectory = _initialize_trajectory(
                 num_timestamps,
                 1,
                 self.state_structure,
-                initial_state
+                initial_state_value
             )
             observation_trajectory = _initialize_trajectory(
                 num_timestamps,
                 1,
                 self.observation_structure,
-                initial_observation
+                initial_observation_value
             )
             # Calculate and store the state and observation for all subsequent time steps
             for timestamp_index in range(1, num_timestamps):
-                next_time, next_state, next_observation = sess.run([assign_time, assign_state, assign_observation])
+                next_time_value, next_state_value, next_observation_value = sess.run([assign_time, assign_state, next_observation])
                 state_trajectory = _extend_trajectory(
                     state_trajectory,
                     timestamp_index,
                     self.state_structure,
-                    next_state
+                    next_state_value
                 )
                 observation_trajectory = _extend_trajectory(
                     observation_trajectory,
                     timestamp_index,
                     self.observation_structure,
-                    next_observation
+                    next_observation_value
                 )
         return state_trajectory, observation_trajectory
 
@@ -184,25 +178,25 @@ class SMCModelGeneralTensorflow:
             # Initialize the persistent variables
             sess.run(init)
             # Calculate and store the initial state samples and log weights
-            initial_time, initial_state, initial_log_weights = sess.run([time, state, log_weights])
+            initial_time_value, initial_state_value, initial_log_weights_value = sess.run([time, state, log_weights])
             state_trajectory = _initialize_trajectory(
                 num_timestamps,
                 num_particles,
                 self.state_structure,
-                initial_state
+                initial_state_value
             )
             log_weights_trajectory = np.zeros((num_timestamps, num_particles))
-            log_weights_trajectory[0] = initial_log_weights
+            log_weights_trajectory[0] = initial_log_weights_value
             # Calculate and store the state samples and log weights for all subsequent time steps
             for timestamp_index in range(1, num_timestamps):
-                next_time, next_state, next_log_weights = sess.run([assign_time, assign_state, assign_log_weights])
+                next_time_value, next_state_value, next_log_weights_value = sess.run([assign_time, assign_state, assign_log_weights])
                 state_trajectory = _extend_trajectory(
                     state_trajectory,
                     timestamp_index,
                     self.state_structure,
-                    next_state
+                    next_state_value
                 )
-                log_weights_trajectory[timestamp_index] = next_log_weights
+                log_weights_trajectory[timestamp_index] = next_log_weights_value
         return state_trajectory, log_weights_trajectory
 
 def _get_variable_dict(structure, initial_values):
