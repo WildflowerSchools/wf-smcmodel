@@ -22,7 +22,11 @@ class SMCModelGeneralTensorflow:
         self.observation_model_sample = observation_model_sample
         self.observation_model_pdf = observation_model_pdf
 
-    def simulate_trajectory(self, timestamps):
+    def simulate_trajectory(self, datetimes):
+        # Convert datetimes to Numpy array of (micro)seconds since epoch
+        timestamps = np.array(
+            [datetime.timestamp() for datetime in datetimes],
+            dtype = np.float64)
         # Build the dataflow graph
         simulation_graph = tf.Graph()
         with simulation_graph.as_default():
@@ -96,8 +100,12 @@ class SMCModelGeneralTensorflow:
     def estimate_state_trajectory(
         self,
         num_particles,
-        timestamps,
+        datetimes,
         observation_trajectory):
+        # Convert datetimes to Numpy array of (micro)seconds since epoch
+        timestamps = np.array(
+            [datetime.timestamp() for datetime in datetimes],
+            dtype = np.float64)
         # Build the dataflow graph
         state_trajectory_estimation_graph = tf.Graph()
         with state_trajectory_estimation_graph.as_default():
