@@ -1,6 +1,7 @@
 # Task list
 
 * Reconsider handline of timestamps (should be datetime objects rather than floats?)
+* Consistently rename previous time and time to time and next time
 * Consider adding num_samples argument to simulate()
 * Consider keeping resampling indices so we can reconstruct trajectories
 * Consider adding (optional) summary functions to model definition

@@ -36,8 +36,8 @@ class SMCModelGeneralTensorflow:
             # Initialize the persistent variables
             init = tf.global_variables_initializer()
             # Calculate the next time step in the simulation
-            time = tf.placeholder(dtype = tf.float32, shape = [], name = 'time')
-            next_time = tf.placeholder(dtype = tf.float32, shape = [], name = 'next_time')
+            time = tf.placeholder(dtype = tf.float64, shape = [], name = 'time')
+            next_time = tf.placeholder(dtype = tf.float64, shape = [], name = 'next_time')
             next_state = self.transition_model_sample(
                 state,
                 time,
@@ -47,7 +47,6 @@ class SMCModelGeneralTensorflow:
             # Assign these values to the persistent variables so they become the inputs for the next time step
             control_dependencies = _tensor_list(next_state)
             with tf.control_dependencies(control_dependencies):
-                # assign_time = time.assign(next_time)
                 assign_state = _variable_dict_assign(
                     self.state_structure,
                     state,
@@ -60,7 +59,6 @@ class SMCModelGeneralTensorflow:
             sess.run(init)
             # Calculate and store the initial state and initial observation
             initial_state_value, initial_observation_value = sess.run([state, initial_observation])
-            # initial_time_value, initial_state_value, initial_observation_value = sess.run([time, state, initial_observation])
             state_trajectory = _initialize_trajectory(
                 num_timestamps,
                 1,
@@ -81,7 +79,6 @@ class SMCModelGeneralTensorflow:
                     [assign_state, next_observation],
                     feed_dict = {time: time_value, next_time: next_time_value}
                 )
-                # next_time_value, next_state_value, next_observation_value = sess.run([assign_time, assign_state, next_observation])
                 state_trajectory = _extend_trajectory(
                     state_trajectory,
                     timestamp_index,
@@ -133,8 +130,8 @@ class SMCModelGeneralTensorflow:
             # Initialize the persistent variables
             init = tf.global_variables_initializer()
             # Calculate the state samples and log weights for the next time step
-            time = tf.placeholder(dtype = tf.float32, shape = [], name = 'time')
-            next_time = tf.placeholder(dtype = tf.float32, shape = [], name = 'next_time')
+            time = tf.placeholder(dtype = tf.float64, shape = [], name = 'time')
+            next_time = tf.placeholder(dtype = tf.float64, shape = [], name = 'next_time')
             resample_indices = tf.squeeze(
                 tf.random.categorical(
                     [log_weights],
