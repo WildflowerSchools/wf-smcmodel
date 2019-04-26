@@ -29,20 +29,15 @@ class SMCModelGeneralTensorflow:
             # Sample the global parameters
             parameters = self.parameter_model_sample()
             # Calculate the initial values for the persistent variables
-            timestamps_iterator = tf.data.Dataset.from_tensor_slices(timestamps).make_one_shot_iterator()
-            initial_time = timestamps_iterator.get_next()
             initial_state = self.initial_model_sample(1, parameters)
             initial_observation = self.observation_model_sample(initial_state, parameters)
             # Define the persistent variables
-            time = tf.get_variable(
-                name = 'time',
-                dtype = tf.float32,
-                initializer = initial_time)
             state = _get_variable_dict(self.state_structure, initial_state)
             # Initialize the persistent variables
             init = tf.global_variables_initializer()
             # Calculate the next time step in the simulation
-            next_time = timestamps_iterator.get_next()
+            time = tf.placeholder(dtype = tf.float32, shape = [], name = 'time')
+            next_time = tf.placeholder(dtype = tf.float32, shape = [], name = 'next_time')
             next_state = self.transition_model_sample(
                 state,
                 time,
@@ -50,9 +45,9 @@ class SMCModelGeneralTensorflow:
                 parameters)
             next_observation = self.observation_model_sample(next_state, parameters)
             # Assign these values to the persistent variables so they become the inputs for the next time step
-            control_dependencies = [next_time] + _tensor_list(next_state) + _tensor_list(next_observation)
+            control_dependencies = _tensor_list(next_state)
             with tf.control_dependencies(control_dependencies):
-                assign_time = time.assign(next_time)
+                # assign_time = time.assign(next_time)
                 assign_state = _variable_dict_assign(
                     self.state_structure,
                     state,
@@ -64,7 +59,8 @@ class SMCModelGeneralTensorflow:
             # Initialize the persistent variables
             sess.run(init)
             # Calculate and store the initial state and initial observation
-            initial_time_value, initial_state_value, initial_observation_value = sess.run([time, state, initial_observation])
+            initial_state_value, initial_observation_value = sess.run([state, initial_observation])
+            # initial_time_value, initial_state_value, initial_observation_value = sess.run([time, state, initial_observation])
             state_trajectory = _initialize_trajectory(
                 num_timestamps,
                 1,
@@ -79,7 +75,13 @@ class SMCModelGeneralTensorflow:
             )
             # Calculate and store the state and observation for all subsequent time steps
             for timestamp_index in range(1, num_timestamps):
-                next_time_value, next_state_value, next_observation_value = sess.run([assign_time, assign_state, next_observation])
+                time_value = timestamps[timestamp_index - 1]
+                next_time_value = timestamps[timestamp_index]
+                next_state_value, next_observation_value = sess.run(
+                    [assign_state, next_observation],
+                    feed_dict = {time: time_value, next_time: next_time_value}
+                )
+                # next_time_value, next_state_value, next_observation_value = sess.run([assign_time, assign_state, next_observation])
                 state_trajectory = _extend_trajectory(
                     state_trajectory,
                     timestamp_index,
@@ -105,12 +107,10 @@ class SMCModelGeneralTensorflow:
             # Sample the global parameters
             parameters = self.parameter_model_sample()
             # Calculate the initial values for the persistent variables
-            timestamps_iterator = tf.data.Dataset.from_tensor_slices(timestamps).make_one_shot_iterator()
             observation_trajectory_iterator_dict = _make_iterator_dict(
                 self.observation_structure,
                 observation_trajectory
             )
-            initial_time = timestamps_iterator.get_next()
             initial_state = self.initial_model_sample(
                 num_particles,
                 parameters
@@ -124,11 +124,6 @@ class SMCModelGeneralTensorflow:
                 initial_observation,
                 parameters)
             # Define the persistent variables
-            time = tf.get_variable(
-                name = 'time',
-                dtype = tf.float32,
-                initializer = initial_time
-            )
             state = _get_variable_dict(self.state_structure, initial_state)
             log_weights = tf.get_variable(
                 name='log_weights',
@@ -138,6 +133,8 @@ class SMCModelGeneralTensorflow:
             # Initialize the persistent variables
             init = tf.global_variables_initializer()
             # Calculate the state samples and log weights for the next time step
+            time = tf.placeholder(dtype = tf.float32, shape = [], name = 'time')
+            next_time = tf.placeholder(dtype = tf.float32, shape = [], name = 'next_time')
             resample_indices = tf.squeeze(
                 tf.random.categorical(
                     [log_weights],
@@ -148,7 +145,6 @@ class SMCModelGeneralTensorflow:
                 self.state_structure,
                 state,
                 resample_indices)
-            next_time = timestamps_iterator.get_next()
             next_state = self.transition_model_sample(
                 state_resampled,
                 time,
@@ -163,9 +159,8 @@ class SMCModelGeneralTensorflow:
                 next_observation,
                 parameters)
             # Assign these values to the persistent variables so they become the inputs for the next time step
-            control_dependencies = [next_time, next_log_weights] + _tensor_list(next_state)
+            control_dependencies = _tensor_list(next_state) + [next_log_weights]
             with tf.control_dependencies(control_dependencies):
-                assign_time = time.assign(next_time)
                 assign_state = _variable_dict_assign(
                     self.state_structure,
                     state,
@@ -178,7 +173,7 @@ class SMCModelGeneralTensorflow:
             # Initialize the persistent variables
             sess.run(init)
             # Calculate and store the initial state samples and log weights
-            initial_time_value, initial_state_value, initial_log_weights_value = sess.run([time, state, log_weights])
+            initial_state_value, initial_log_weights_value = sess.run([state, log_weights])
             state_trajectory = _initialize_trajectory(
                 num_timestamps,
                 num_particles,
@@ -189,7 +184,12 @@ class SMCModelGeneralTensorflow:
             log_weights_trajectory[0] = initial_log_weights_value
             # Calculate and store the state samples and log weights for all subsequent time steps
             for timestamp_index in range(1, num_timestamps):
-                next_time_value, next_state_value, next_log_weights_value = sess.run([assign_time, assign_state, assign_log_weights])
+                time_value = timestamps[timestamp_index - 1]
+                next_time_value = timestamps[timestamp_index]
+                next_state_value, next_log_weights_value = sess.run(
+                    [assign_state, assign_log_weights],
+                    feed_dict = {time: time_value, next_time: next_time_value}
+                )
                 state_trajectory = _extend_trajectory(
                     state_trajectory,
                     timestamp_index,
