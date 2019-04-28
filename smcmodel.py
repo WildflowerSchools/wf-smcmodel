@@ -114,7 +114,7 @@ class SMCModelGeneralTensorflow:
             # Calculate the initial values for the persistent variables
             observation_trajectory_iterator_dict = _make_iterator_dict(
                 self.observation_structure,
-                observation_trajectory
+                observation_trajectory_array
             )
             initial_state = self.initial_model_sample(
                 num_particles,
