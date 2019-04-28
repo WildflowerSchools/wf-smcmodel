@@ -102,10 +102,10 @@ class SMCModelGeneralTensorflow:
         num_particles,
         datetimes,
         observation_trajectory):
+        # Convert observation trajectory to dict of Numpy arrays
+        observation_trajectory_array = _to_array_dict(observation_trajectory)
         # Convert datetimes to Numpy array of (micro)seconds since epoch
-        timestamps = np.array(
-            [datetime.timestamp() for datetime in datetimes],
-            dtype = np.float64)
+        timestamps_array = _to_timestamps_array(datetimes)
         # Build the dataflow graph
         state_trajectory_estimation_graph = tf.Graph()
         with state_trajectory_estimation_graph.as_default():
@@ -173,7 +173,7 @@ class SMCModelGeneralTensorflow:
                 )
                 assign_log_weights = log_weights.assign(next_log_weights)
         # Run the calcuations using the graph above
-        num_timestamps = timestamps.shape[0]
+        num_timestamps = timestamps_array.shape[0]
         with tf.Session(graph=state_trajectory_estimation_graph) as sess:
             # Initialize the persistent variables
             sess.run(init)
@@ -189,8 +189,8 @@ class SMCModelGeneralTensorflow:
             log_weights_trajectory[0] = initial_log_weights_value
             # Calculate and store the state samples and log weights for all subsequent time steps
             for timestamp_index in range(1, num_timestamps):
-                time_value = timestamps[timestamp_index - 1]
-                next_time_value = timestamps[timestamp_index]
+                time_value = timestamps_array[timestamp_index - 1]
+                next_time_value = timestamps_array[timestamp_index]
                 next_state_value, next_log_weights_value = sess.run(
                     [assign_state, assign_log_weights],
                     feed_dict = {time: time_value, next_time: next_time_value}
@@ -203,6 +203,30 @@ class SMCModelGeneralTensorflow:
                 )
                 log_weights_trajectory[timestamp_index] = next_log_weights_value
         return state_trajectory, log_weights_trajectory
+
+        # Convert observation trajectory to dict of Numpy arrays
+        observation_trajectory_array = _to_array_dict(observation_trajectory)
+        # Convert datetimes to Numpy array of (micro)seconds since epoch
+        timestamps_array = _to_timestamps_array(datetimes)
+        timestamps = np.array(
+            [datetime.timestamp() for datetime in datetimes],
+            dtype = np.float64)
+
+def _to_array_dict(trajectory):
+    array_dict = {}
+    for variable_name, variable_value in trajectory.items():
+        array_dict[variable_name] = np.asarray(
+            variable_value,
+            dtype = np.float32
+        )
+    return array_dict
+
+def _to_timestamps_array(datetimes):
+    timestamps_array = np.asarray(
+        [datetime.timestamp() for datetime in datetimes],
+        dtype = np.float64
+    )
+    return timestamps_array
 
 def _get_variable_dict(structure, initial_values):
     variable_dict = {}
