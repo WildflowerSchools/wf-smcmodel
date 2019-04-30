@@ -1,6 +1,29 @@
 import tensorflow as tf
 import numpy as np
 
+_dtypes = {
+    'float32': {
+        'tensorflow': tf.float32,
+        'numpy': np.float32
+    },
+    'float64': {
+        'tensorflow': tf.float64,
+        'numpy': np.float64
+    },
+    'int32': {
+        'tensorflow': tf.int32,
+        'numpy': np.int32
+    },
+    'int64': {
+        'tensorflow': tf.int64,
+        'numpy': np.int64
+    },
+    'bool': {
+        'tensorflow': tf.bool,
+        'numpy': np.bool_
+    },
+}
+
 class SMCModelGeneralTensorflow:
 
     def __init__(
@@ -24,9 +47,7 @@ class SMCModelGeneralTensorflow:
 
     def simulate_trajectory(self, datetimes):
         # Convert datetimes to Numpy array of (micro)seconds since epoch
-        timestamps = np.array(
-            [datetime.timestamp() for datetime in datetimes],
-            dtype = np.float64)
+        timestamps = _datetimes_to_timestamps_array(datetimes)
         # Build the dataflow graph
         simulation_graph = tf.Graph()
         with simulation_graph.as_default():
@@ -103,16 +124,19 @@ class SMCModelGeneralTensorflow:
         datetimes,
         observation_trajectory):
         # Convert observation trajectory to dict of Numpy arrays
-        observation_trajectory_array = _to_array_dict(observation_trajectory)
+        observation_trajectory_array = _to_array_dict(
+            self.observation_structure,
+            observation_trajectory
+        )
         # Convert datetimes to Numpy array of (micro)seconds since epoch
-        timestamps_array = _to_timestamps_array(datetimes)
+        timestamps_array = _datetimes_to_timestamps_array(datetimes)
         # Build the dataflow graph
         state_trajectory_estimation_graph = tf.Graph()
         with state_trajectory_estimation_graph.as_default():
             # Sample the global parameters
             parameters = self.parameter_model_sample()
             # Calculate the initial values for the persistent variables
-            observation_trajectory_iterator_dict = _make_iterator_dict(
+            observation_trajectory_iterator_dict = _array_dict_to_iterator_dict(
                 self.observation_structure,
                 observation_trajectory_array
             )
@@ -204,24 +228,25 @@ class SMCModelGeneralTensorflow:
                 log_weights_trajectory[timestamp_index] = next_log_weights_value
         return state_trajectory, log_weights_trajectory
 
-        # Convert observation trajectory to dict of Numpy arrays
-        observation_trajectory_array = _to_array_dict(observation_trajectory)
-        # Convert datetimes to Numpy array of (micro)seconds since epoch
-        timestamps_array = _to_timestamps_array(datetimes)
-        timestamps = np.array(
-            [datetime.timestamp() for datetime in datetimes],
-            dtype = np.float64)
-
-def _to_array_dict(trajectory):
+def _to_array_dict(structure, input):
     array_dict = {}
-    for variable_name, variable_value in trajectory.items():
+    for variable_name, variable_info in structure.items():
         array_dict[variable_name] = np.asarray(
-            variable_value,
-            dtype = np.float32
+            input[variable_name],
+            dtype = _dtypes[variable_info['type']]['numpy']
         )
     return array_dict
 
-def _to_timestamps_array(datetimes):
+def _array_dict_to_tensor_dict(structure, array_dict):
+    tensor_dict = {}
+    for variable_name, variable_info in structure.items():
+        tensor_dict[variable_name] = tf.constant(
+            array_dict[variable_name],
+            dtype = _dtypes[variable_info['type']]['tensorflow']
+        )
+    return array_dict
+
+def _datetimes_to_timestamps_array(datetimes):
     timestamps_array = np.asarray(
         [datetime.timestamp() for datetime in datetimes],
         dtype = np.float64
@@ -233,7 +258,7 @@ def _get_variable_dict(structure, initial_values):
     for variable_name, variable_info in structure.items():
         variable_dict[variable_name] = tf.get_variable(
             name = variable_name,
-            dtype = variable_info['dtype'],
+            dtype = _dtypes[variable_info['type']]['tensorflow'],
             initializer = initial_values[variable_name])
     return variable_dict
 
@@ -243,15 +268,11 @@ def _variable_dict_assign(structure, variable_dict, values):
         assign_dict[variable_name] = variable_dict[variable_name].assign(values[variable_name])
     return assign_dict
 
-def _make_iterator_dict(structure, array_dict):
+def _array_dict_to_iterator_dict(structure, array_dict):
+    tensor_dict = _array_dict_to_tensor_dict(structure, array_dict)
     iterator_dict={}
     for variable_name in structure.keys():
-        dataset = tf.data.Dataset.from_tensor_slices(
-            np.asarray(
-                array_dict[variable_name],
-                dtype=np.float32
-            )
-        )
+        dataset = tf.data.Dataset.from_tensor_slices(tensor_dict[variable_name])
         iterator_dict[variable_name] = dataset.make_one_shot_iterator()
     return iterator_dict
 
