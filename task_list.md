@@ -2,7 +2,6 @@
 
 * Make functions handle datetimes in an array of shapes/types/formats
 * Make functions handle observation trajectories in an array of shapes/types/formats
-* Consider keeping resampling indices so we can reconstruct trajectories
 * Consider adding (optional) summary functions to model definition
 * Consider calculating summaries in TensorFlow
 * Add explicit names to tensors and ops

@@ -201,7 +201,8 @@ class SMCModelGeneralTensorflow:
         with tf.Session(graph=state_trajectory_estimation_graph) as sess:
             # Initialize the persistent variables
             sess.run(init)
-            # Calculate and store the initial state samples and log weights
+            # Calculate and store the initial state samples,log weights, and
+            # resample indices
             initial_state_value, initial_log_weights_value = sess.run([state, log_weights])
             state_trajectory = _initialize_trajectory(
                 num_timestamps,
@@ -211,12 +212,13 @@ class SMCModelGeneralTensorflow:
             )
             log_weights_trajectory = np.zeros((num_timestamps, num_particles))
             log_weights_trajectory[0] = initial_log_weights_value
+            resample_indices_trajectory = np.zeros((num_timestamps, num_particles))
             # Calculate and store the state samples and log weights for all subsequent time steps
             for timestamp_index in range(1, num_timestamps):
                 time_value = timestamps_array[timestamp_index - 1]
                 next_time_value = timestamps_array[timestamp_index]
-                next_state_value, next_log_weights_value = sess.run(
-                    [assign_state, assign_log_weights],
+                next_state_value, next_log_weights_value, resample_indices_value = sess.run(
+                    [assign_state, assign_log_weights, resample_indices],
                     feed_dict = {time: time_value, next_time: next_time_value}
                 )
                 state_trajectory = _extend_trajectory(
@@ -226,7 +228,8 @@ class SMCModelGeneralTensorflow:
                     next_state_value
                 )
                 log_weights_trajectory[timestamp_index] = next_log_weights_value
-        return state_trajectory, log_weights_trajectory
+                resample_indices_trajectory[timestamp_index] = resample_indices_value
+        return state_trajectory, log_weights_trajectory, resample_indices_trajectory
 
 def _to_array_dict(structure, input):
     array_dict = {}
