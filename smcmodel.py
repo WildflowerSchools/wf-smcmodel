@@ -215,10 +215,13 @@ class SMCModelGeneralTensorflow:
         num_timestamps = timestamps_array.shape[0]
         with tf.Session(graph=state_trajectory_estimation_graph) as sess:
             # Calculate initial values and initialize the persistent variables
-            initial_state_summary_value, _ = sess.run([initial_state_summary, init])
-            # Calculate and store the initial state samples,log weights, and
-            # resample indices
-            initial_state_value, initial_log_weights_value = sess.run([state, log_weights])
+            initial_state_value, initial_log_weights_value, initial_state_summary_value, _ = sess.run([
+                initial_state,
+                initial_log_weights,
+                initial_state_summary,
+                init
+            ])
+            # Initialize the trajectories
             state_trajectory = _initialize_trajectory(
                 num_timestamps,
                 num_particles,
