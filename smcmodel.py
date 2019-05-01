@@ -31,19 +31,23 @@ class SMCModelGeneralTensorflow:
         parameter_structure = None,
         state_structure = None,
         observation_structure = None,
+        state_summary_structure = None,
         parameter_model_sample = None,
         initial_model_sample = None,
         transition_model_sample = None,
         observation_model_sample = None,
-        observation_model_pdf = None):
+        observation_model_pdf = None,
+        state_summary = None):
         self.parameter_structure = parameter_structure
         self.state_structure = state_structure
         self.observation_structure = observation_structure
+        self.state_summary_structure = state_summary_structure
         self.parameter_model_sample = parameter_model_sample
         self.initial_model_sample = initial_model_sample
         self.transition_model_sample = transition_model_sample
         self.observation_model_sample = observation_model_sample
         self.observation_model_pdf = observation_model_pdf
+        self.state_summary = state_summary
 
     def simulate_trajectory(self, datetimes):
         # Convert datetimes to Numpy array of (micro)seconds since epoch
@@ -151,7 +155,13 @@ class SMCModelGeneralTensorflow:
             initial_log_weights = self.observation_model_pdf(
                 initial_state,
                 initial_observation,
-                parameters)
+                parameters
+            )
+            initial_state_summary = self.state_summary(
+                initial_state,
+                initial_log_weights,
+                parameters
+            )
             # Define the persistent variables
             state = _get_variable_dict(self.state_structure, initial_state)
             log_weights = tf.get_variable(
@@ -187,8 +197,13 @@ class SMCModelGeneralTensorflow:
                 next_state,
                 next_observation,
                 parameters)
+            next_state_summary = self.state_summary(
+                next_state,
+                next_log_weights,
+                parameters
+            )
             # Assign these values to the persistent variables so they become the inputs for the next time step
-            control_dependencies = _tensor_list(next_state) + [next_log_weights]
+            control_dependencies = _tensor_list(next_state) + _tensor_list(next_state_summary) + [next_log_weights]
             with tf.control_dependencies(control_dependencies):
                 assign_state = _variable_dict_assign(
                     self.state_structure,
@@ -199,8 +214,8 @@ class SMCModelGeneralTensorflow:
         # Run the calcuations using the graph above
         num_timestamps = timestamps_array.shape[0]
         with tf.Session(graph=state_trajectory_estimation_graph) as sess:
-            # Initialize the persistent variables
-            sess.run(init)
+            # Calculate initial values and initialize the persistent variables
+            initial_state_summary_value, _ = sess.run([initial_state_summary, init])
             # Calculate and store the initial state samples,log weights, and
             # resample indices
             initial_state_value, initial_log_weights_value = sess.run([state, log_weights])
@@ -213,12 +228,18 @@ class SMCModelGeneralTensorflow:
             log_weights_trajectory = np.zeros((num_timestamps, num_particles))
             log_weights_trajectory[0] = initial_log_weights_value
             resample_indices_trajectory = np.zeros((num_timestamps, num_particles))
+            state_summary_trajectory = _initialize_trajectory(
+                num_timestamps,
+                1,
+                self.state_summary_structure,
+                initial_state_summary_value
+            )
             # Calculate and store the state samples and log weights for all subsequent time steps
             for timestamp_index in range(1, num_timestamps):
                 time_value = timestamps_array[timestamp_index - 1]
                 next_time_value = timestamps_array[timestamp_index]
-                next_state_value, next_log_weights_value, resample_indices_value = sess.run(
-                    [assign_state, assign_log_weights, resample_indices],
+                next_state_value, next_log_weights_value, resample_indices_value, next_state_summary_value = sess.run(
+                    [assign_state, assign_log_weights, resample_indices, next_state_summary],
                     feed_dict = {time: time_value, next_time: next_time_value}
                 )
                 state_trajectory = _extend_trajectory(
@@ -229,7 +250,13 @@ class SMCModelGeneralTensorflow:
                 )
                 log_weights_trajectory[timestamp_index] = next_log_weights_value
                 resample_indices_trajectory[timestamp_index] = resample_indices_value
-        return state_trajectory, log_weights_trajectory, resample_indices_trajectory
+                state_summary_trajectory = _extend_trajectory(
+                    state_summary_trajectory,
+                    timestamp_index,
+                    self.state_summary_structure,
+                    next_state_summary_value
+                )
+        return state_trajectory, log_weights_trajectory, resample_indices_trajectory, state_summary_trajectory
 
 def _to_array_dict(structure, input):
     array_dict = {}
