@@ -215,21 +215,10 @@ class SMCModelGeneralTensorflow:
         num_timestamps = timestamps_array.shape[0]
         with tf.Session(graph=state_trajectory_estimation_graph) as sess:
             # Calculate initial values and initialize the persistent variables
-            initial_state_value, initial_log_weights_value, initial_state_summary_value, _ = sess.run([
-                initial_state,
-                initial_log_weights,
+            initial_state_summary_value, _ = sess.run([
                 initial_state_summary,
                 init
             ])
-            # Initialize the trajectories
-            state_trajectory = _initialize_trajectory(
-                num_timestamps,
-                num_particles,
-                self.state_structure,
-                initial_state_value
-            )
-            log_weights_trajectory = np.zeros((num_timestamps, num_particles))
-            log_weights_trajectory[0] = initial_log_weights_value
             resample_indices_trajectory = np.zeros((num_timestamps, num_particles))
             state_summary_trajectory = _initialize_trajectory(
                 num_timestamps,
@@ -241,17 +230,10 @@ class SMCModelGeneralTensorflow:
             for timestamp_index in range(1, num_timestamps):
                 time_value = timestamps_array[timestamp_index - 1]
                 next_time_value = timestamps_array[timestamp_index]
-                next_state_value, next_log_weights_value, resample_indices_value, next_state_summary_value = sess.run(
-                    [assign_state, assign_log_weights, resample_indices, next_state_summary],
+                resample_indices_value, next_state_summary_value, _, _ = sess.run(
+                    [resample_indices, next_state_summary, assign_state, assign_log_weights],
                     feed_dict = {time: time_value, next_time: next_time_value}
                 )
-                state_trajectory = _extend_trajectory(
-                    state_trajectory,
-                    timestamp_index,
-                    self.state_structure,
-                    next_state_value
-                )
-                log_weights_trajectory[timestamp_index] = next_log_weights_value
                 resample_indices_trajectory[timestamp_index] = resample_indices_value
                 state_summary_trajectory = _extend_trajectory(
                     state_summary_trajectory,
@@ -259,7 +241,7 @@ class SMCModelGeneralTensorflow:
                     self.state_summary_structure,
                     next_state_summary_value
                 )
-        return state_trajectory, log_weights_trajectory, resample_indices_trajectory, state_summary_trajectory
+        return resample_indices_trajectory, state_summary_trajectory
 
 def _to_array_dict(structure, input):
     array_dict = {}

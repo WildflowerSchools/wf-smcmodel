@@ -1,5 +1,6 @@
 # Task list
 
+* Figure out how to force assignment ops without fetching their outputs
 * Add database functionality
 * Add explicit names to tensors and ops
 * Check dataflow graphs using tensorboard (are all objects of known size at graph specification time)
