@@ -1,28 +1,6 @@
+import smcmodel.shared_constants
 import tensorflow as tf
 import numpy as np
-
-_dtypes = {
-    'float32': {
-        'tensorflow': tf.float32,
-        'numpy': np.float32
-    },
-    'float64': {
-        'tensorflow': tf.float64,
-        'numpy': np.float64
-    },
-    'int32': {
-        'tensorflow': tf.int32,
-        'numpy': np.int32
-    },
-    'int64': {
-        'tensorflow': tf.int64,
-        'numpy': np.int64
-    },
-    'bool': {
-        'tensorflow': tf.bool,
-        'numpy': np.bool_
-    },
-}
 
 class SMCModelGeneralTensorflow:
 
@@ -248,7 +226,7 @@ def _to_array_dict(structure, input):
     for variable_name, variable_info in structure.items():
         array_dict[variable_name] = np.asarray(
             input[variable_name],
-            dtype = _dtypes[variable_info['type']]['numpy']
+            dtype = smcmodel.shared_constants._dtypes[variable_info['type']]['numpy']
         )
     return array_dict
 
@@ -257,7 +235,7 @@ def _array_dict_to_tensor_dict(structure, array_dict):
     for variable_name, variable_info in structure.items():
         tensor_dict[variable_name] = tf.constant(
             array_dict[variable_name],
-            dtype = _dtypes[variable_info['type']]['tensorflow']
+            dtype = smcmodel.shared_constants._dtypes[variable_info['type']]['tensorflow']
         )
     return array_dict
 
@@ -273,7 +251,7 @@ def _get_variable_dict(structure, initial_values):
     for variable_name, variable_info in structure.items():
         variable_dict[variable_name] = tf.get_variable(
             name = variable_name,
-            dtype = _dtypes[variable_info['type']]['tensorflow'],
+            dtype = smcmodel.shared_constants._dtypes[variable_info['type']]['tensorflow'],
             initializer = initial_values[variable_name])
     return variable_dict
 

@@ -10,8 +10,6 @@
 * Generate documentation
 * Make functions handle datetimes in an array of shapes/types/formats
 * Make functions handle observation trajectories in an array of shapes/types/formats
-* Consider adding (optional) summary functions to model definition
-* Consider calculating summaries in TensorFlow
 * Consider adding num_samples argument to simulate()
 * Reconsider whether state trajectory and observation trajectory should be lists of dicts (vs. dicts of expanded arrays)
 * Consider creating new classes for state, observation, parameters
