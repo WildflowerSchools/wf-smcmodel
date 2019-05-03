@@ -1,3 +1,8 @@
+"""
+Implement databases in memory for reading and writing data while performing
+sequential Monte Carlo (SMC) simulation and inference.
+"""
+
 import smcmodel.shared_constants
 from . import Database
 from . import DataQueue
@@ -5,15 +10,54 @@ import datetime_conversion
 import numpy as np
 
 class DatabaseMemory(Database):
+    """
+    Implement database in memory for reading and writing data based on timestamp.
+    """
 
     def __init__(self, structure, num_samples):
+        """
+        Constructor for DatabaseMemory class.
+
+        Initializes an empty database with the specified variable structure and number of samples per timestamp.
+
+        The keys of structure should be the variable names associated with the
+        object that the database is storing (e.g., if the database is storing
+        data for the state of the system, keys might be 'positions' and
+        'velocities'). The values should be dicts containing the structure info
+        for that those variables: 'shape' and 'type' (see examples of implemented
+        SMCModel class for examples of this structure).
+
+        Parameters:
+            structure (dict): Structure of the object that the database is storing
+            num_samples (int): Number of samples per timestamp
+        """
         self.structure = structure
         self.num_samples = num_samples
         self._timestamp_list = []
         self._data_dict_list = []
 
-    def write_data(self, datetime, single_time_data):
-        timestamp = datetime_conversion.to_posix_timestamp(datetime)
+    def write_data(self, timestamp, single_time_data):
+        """
+        Write data to database with a timestamp.
+
+        The timestamp should be a Python datetime object (timezone-aware or
+        timezone-naive), a Numpy datetime64 object, a Pandas Timestamp object
+        (timezone-aware or timezone-naive), a string in ISO format
+        (timezone-aware or timezone-naive), or seconds since the Unix epoch
+        (float or int).
+
+        The keys of single_time_data should be the variable names associated
+        with the object that the database is storing (e.g., if the database is
+        storing data for the state of the system, keys might be 'positions' and
+        'velocities'). The values should be array-like (convertible to Numpy
+        arrays) with shape (number of samples at each timestep, [shape of
+        variable]).
+
+        Parameters:
+            timestamp (datetime): Timestamp associated with the data
+            single_time_data (dict): Data for that timestamp
+        """
+        timestamp = datetime_conversion.to_posix_timestamp(timestamp)
         if set(single_time_data.keys()) != set(self.structure.keys()):
             raise ValueError('Keys in new data don\'t match variable structure of database')
         for variable_name in self.structure.keys():
@@ -29,6 +73,37 @@ class DatabaseMemory(Database):
         self._data_dict_list.append(single_time_data)
 
     def fetch_data(self, start_datetime = None, end_datetime = None):
+        """
+        Fetch time series data for a specified time span.
+
+        The datetime arguments should be Python datetime objects (timezone-aware
+        or timezone-naive), Numpy datetime64 objects, Pandas Timestamp objects
+        (timezone-aware or timezone-naive), strings in ISO format
+        (timezone-aware or timezone-naive), or seconds since the Unix epoch
+        (float or int).
+
+        If start_datetime is not specified, returned data starts with the
+        earliest data in the database. If end_datetime is not specified,
+        returned data ends with the latest data in the database.
+
+        The returned timestamps and time series data will be in time order
+        regardless of the order in which the data was written to the database.
+
+        The keys of the returned time series data are the variable names
+        associated with the object that the database is holding (e.g., if the
+        database is storing data for the state of the system, keys might be
+        'positions' and 'velocities'). The values are Numpy arrays with shape
+        (number of timestamps, number of samples at each timestamp, [shape of
+        variable]).
+
+        Parameters:
+            start_datetime (datetime): Beginning of the period we want to fetch
+            end_datetime (datetime): End of the period we want to fetch
+
+        Returns:
+            (array of float): Numpy array of timestamps encoded as seconds since Unix epoch
+            (dict) Time series of associated data
+        """
         num_timestamps = len(self._timestamp_list)
         timestamp_array = np.asarray(self._timestamp_list)
         time_series_data = {}
@@ -58,7 +133,36 @@ class DatabaseMemory(Database):
         return timestamp_array, time_series_data
 
 class DataQueueMemory(DataQueue):
+    """
+    Implement a DataQueue in memory which supplies data sequentially for a series of timestamps.
+    """
     def __init__(self, structure, num_samples, timestamps, time_series_data):
+        """
+        Constructor for DataQueueMemory class.
+
+        Initializes a dataqueue with time series data.
+
+        The keys of structure should be the variable names associated with the
+        object that the database is storing (e.g., if the database is storing
+        data for the state of the system, keys might be 'positions' and
+        'velocities'). The values should be dicts containing the structure info
+        for that those variables: 'shape' and 'type' (see examples of implemented
+        SMCModel class for examples of this structure).
+
+        Timestamps should be Python datetime objects (timezone-aware or
+        timezone-naive), Numpy datetime64 objects, Pandas Timestamp objects
+        (timezone-aware or timezone-naive), strings in ISO format
+        (timezone-aware or timezone-naive), or seconds since the Unix epoch
+        (float or int).
+
+        Time series data should be in the format returned by Database.fetch_data().
+
+        Parameters:
+            structure (dict): Structure of the object that the database is storing
+            num_samples (int): Number of samples per timestamp
+            timestamps (array of datetime): Timestamps for the data
+            time_series_data (dict): Data associated with these timestamps
+        """
         timestamps = datetime_conversion.to_posix_timestamps(timestamps)
         num_timestamps = timestamps.shape[0]
         for variable_name, variable_info in structure.items():
@@ -96,6 +200,17 @@ class DataQueueMemory(DataQueue):
         start_datetime = None,
         end_datetime = None
     ):
+        """
+        Class method for creating a DataQueue from a Database.
+
+        Parameters:
+            database (Database): Database containing data for the queue
+            start_datetime (datetime): Beginning of the period we want to place in the queue
+            end_datetime (datetime): End of the period we want to place in the queue
+
+        Returns:
+            (DataQueueMemory): Data queue containing the specified data from the database
+        """
         timestamps, time_series_data = database.fetch_data(
             start_datetime,
             end_datetime
@@ -108,6 +223,24 @@ class DataQueueMemory(DataQueue):
         )
 
     def fetch_next_data(self):
+        """
+        Fetch data for the next timestamp.
+
+        Data will be fetched in time order.
+
+        The keys of the returned data are the variable names associated with the
+        object that the database is holding (e.g., if the database is storing
+        data for the state of the system, keys might be 'positions' and
+        'velocities'). The values are Numpy arrays with shape (number of samples
+        at each timestep, [shape of variable]).
+
+        Once all data in the queue has been fetched, method will return None for
+        both outputs.
+
+        Returns:
+            (float): Timestamp of the data encoded as seconds since Unix epoch
+            (dict): Data associated with that timestamp
+        """
         if self.next_data_pointer >= self.num_timestamps:
             return None, None
         else:
