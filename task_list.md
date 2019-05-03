@@ -1,12 +1,8 @@
 # Task list
 
-* Build out DataQueue class
-* Use DataQueue as input for state estimation
 * Use new datetime conversion functions
 * Move num_resample_indices into state summary
-
 * Figure out how to force assignment ops without fetching their outputs
-* Add database functionality
 * Add explicit names to tensors and ops
 * Check dataflow graphs using tensorboard (are all objects of known size at graph specification time)
 * Add type and shape checking

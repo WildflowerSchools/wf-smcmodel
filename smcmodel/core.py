@@ -82,33 +82,18 @@ class SMCModelGeneralTensorflow:
     def estimate_state_trajectory(
         self,
         num_particles,
-        datetimes,
-        observation_trajectory,
+        observation_data_queue,
         state_summary_database):
-        # Convert observation trajectory to dict of Numpy arrays
-        observation_trajectory_array = _to_array_dict(
-            self.observation_structure,
-            observation_trajectory
-        )
-        # Convert datetimes to Numpy array of (micro)seconds since epoch
-        timestamps_array = _datetimes_to_timestamps_array(datetimes)
         # Build the dataflow graph
         state_trajectory_estimation_graph = tf.Graph()
         with state_trajectory_estimation_graph.as_default():
             # Sample the global parameters
             parameters = self.parameter_model_sample()
             # Calculate the initial values for the persistent variables
-            observation_trajectory_iterator_dict = _array_dict_to_iterator_dict(
-                self.observation_structure,
-                observation_trajectory_array
-            )
+            initial_observation = _placeholder_dict(self.observation_structure)
             initial_state = self.initial_model_sample(
                 num_particles,
                 parameters
-            )
-            initial_observation = _iterator_dict_get_next(
-                self.observation_structure,
-                observation_trajectory_iterator_dict
             )
             initial_log_weights = self.observation_model_pdf(
                 initial_state,
@@ -132,6 +117,7 @@ class SMCModelGeneralTensorflow:
             # Calculate the state samples and log weights for the next time step
             time = tf.placeholder(dtype = tf.float64, shape = [], name = 'time')
             next_time = tf.placeholder(dtype = tf.float64, shape = [], name = 'next_time')
+            next_observation = _placeholder_dict(self.observation_structure)
             resample_indices = tf.squeeze(
                 tf.random.categorical(
                     [log_weights],
@@ -148,9 +134,6 @@ class SMCModelGeneralTensorflow:
                 next_time,
                 parameters
             )
-            next_observation = _iterator_dict_get_next(
-                self.observation_structure,
-                observation_trajectory_iterator_dict)
             next_log_weights = self.observation_model_pdf(
                 next_state,
                 next_observation,
@@ -170,26 +153,52 @@ class SMCModelGeneralTensorflow:
                 )
                 assign_log_weights = log_weights.assign(next_log_weights)
         # Run the calcuations using the graph above
-        num_timestamps = timestamps_array.shape[0]
         with tf.Session(graph=state_trajectory_estimation_graph) as sess:
             # Calculate initial values and initialize the persistent variables
-            initial_state_summary_value, _ = sess.run([
-                initial_state_summary,
-                init
-            ])
-            resample_indices_trajectory = np.zeros((num_timestamps, num_particles))
-            state_summary_database.write_data(timestamps_array[0], initial_state_summary_value)
+            initial_time_value, initial_observation_value = observation_data_queue.fetch_next_data()
+            initial_observation_feed_dict = _feed_dict(
+                self.observation_structure,
+                initial_observation,
+                initial_observation_value
+            )
+            initial_state_summary_value, _ = sess.run(
+                [initial_state_summary, init],
+                feed_dict = initial_observation_feed_dict)
+            state_summary_database.write_data(initial_time_value, initial_state_summary_value)
             # Calculate and store the state samples and log weights for all subsequent time steps
-            for timestamp_index in range(1, num_timestamps):
-                time_value = timestamps_array[timestamp_index - 1]
-                next_time_value = timestamps_array[timestamp_index]
-                resample_indices_value, next_state_summary_value, _, _ = sess.run(
-                    [resample_indices, next_state_summary, assign_state, assign_log_weights],
-                    feed_dict = {time: time_value, next_time: next_time_value}
+            time_value = initial_time_value
+            while True:
+                next_time_value, next_observation_value = observation_data_queue.fetch_next_data()
+                if next_time_value is None:
+                    break
+                time_feed_dict = {time: time_value, next_time: next_time_value}
+                next_operation_feed_dict = _feed_dict(
+                    self.observation_structure,
+                    next_observation,
+                    next_observation_value
                 )
-                resample_indices_trajectory[timestamp_index] = resample_indices_value
-                state_summary_database.write_data(timestamps_array[timestamp_index], next_state_summary_value)
-        return resample_indices_trajectory
+                combined_feed_dict = {**time_feed_dict, **next_operation_feed_dict}
+                next_state_summary_value, _, _ = sess.run(
+                    [next_state_summary, assign_state, assign_log_weights],
+                    feed_dict = combined_feed_dict
+                )
+                state_summary_database.write_data(next_time_value, next_state_summary_value)
+                time_value = next_time_value
+
+def _placeholder_dict(structure):
+    placeholder_dict = {}
+    for variable_name, variable_info in structure.items():
+        placeholder_dict[variable_name] = tf.placeholder(
+            dtype = smcmodel.shared_constants._dtypes[variable_info['type']]['tensorflow'],
+            shape = tuple([1]) + tuple(variable_info['shape'])
+        )
+    return placeholder_dict
+
+def _feed_dict(structure, tensor_dict, array_dict):
+    feed_dict = {}
+    for variable_name in structure.keys():
+        feed_dict[tensor_dict[variable_name]] = array_dict[variable_name]
+    return feed_dict
 
 def _to_array_dict(structure, input):
     array_dict = {}
