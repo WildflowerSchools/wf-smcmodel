@@ -27,7 +27,7 @@ class SMCModelGeneralTensorflow:
         self.observation_model_pdf = observation_model_pdf
         self.state_summary = state_summary
 
-    def simulate_trajectory(self, datetimes):
+    def simulate_trajectory(self, datetimes, state_database, observation_database):
         # Convert datetimes to Numpy array of (micro)seconds since epoch
         timestamps = _datetimes_to_timestamps_array(datetimes)
         # Build the dataflow graph
@@ -66,18 +66,8 @@ class SMCModelGeneralTensorflow:
             sess.run(init)
             # Calculate and store the initial state and initial observation
             initial_state_value, initial_observation_value = sess.run([state, initial_observation])
-            state_trajectory = _initialize_trajectory(
-                num_timestamps,
-                1,
-                self.state_structure,
-                initial_state_value
-            )
-            observation_trajectory = _initialize_trajectory(
-                num_timestamps,
-                1,
-                self.observation_structure,
-                initial_observation_value
-            )
+            state_database.write_data(timestamps[0], initial_state_value)
+            observation_database.write_data(timestamps[0], initial_observation_value)
             # Calculate and store the state and observation for all subsequent time steps
             for timestamp_index in range(1, num_timestamps):
                 time_value = timestamps[timestamp_index - 1]
@@ -86,25 +76,15 @@ class SMCModelGeneralTensorflow:
                     [assign_state, next_observation],
                     feed_dict = {time: time_value, next_time: next_time_value}
                 )
-                state_trajectory = _extend_trajectory(
-                    state_trajectory,
-                    timestamp_index,
-                    self.state_structure,
-                    next_state_value
-                )
-                observation_trajectory = _extend_trajectory(
-                    observation_trajectory,
-                    timestamp_index,
-                    self.observation_structure,
-                    next_observation_value
-                )
-        return state_trajectory, observation_trajectory
+                state_database.write_data(timestamps[timestamp_index], next_state_value)
+                observation_database.write_data(timestamps[timestamp_index], next_observation_value)
 
     def estimate_state_trajectory(
         self,
         num_particles,
         datetimes,
-        observation_trajectory):
+        observation_trajectory,
+        state_summary_database):
         # Convert observation trajectory to dict of Numpy arrays
         observation_trajectory_array = _to_array_dict(
             self.observation_structure,
@@ -198,12 +178,7 @@ class SMCModelGeneralTensorflow:
                 init
             ])
             resample_indices_trajectory = np.zeros((num_timestamps, num_particles))
-            state_summary_trajectory = _initialize_trajectory(
-                num_timestamps,
-                1,
-                self.state_summary_structure,
-                initial_state_summary_value
-            )
+            state_summary_database.write_data(timestamps_array[0], initial_state_summary_value)
             # Calculate and store the state samples and log weights for all subsequent time steps
             for timestamp_index in range(1, num_timestamps):
                 time_value = timestamps_array[timestamp_index - 1]
@@ -213,13 +188,8 @@ class SMCModelGeneralTensorflow:
                     feed_dict = {time: time_value, next_time: next_time_value}
                 )
                 resample_indices_trajectory[timestamp_index] = resample_indices_value
-                state_summary_trajectory = _extend_trajectory(
-                    state_summary_trajectory,
-                    timestamp_index,
-                    self.state_summary_structure,
-                    next_state_summary_value
-                )
-        return resample_indices_trajectory, state_summary_trajectory
+                state_summary_database.write_data(timestamps_array[timestamp_index], next_state_summary_value)
+        return resample_indices_trajectory
 
 def _to_array_dict(structure, input):
     array_dict = {}
