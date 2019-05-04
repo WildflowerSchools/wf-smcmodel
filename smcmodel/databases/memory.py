@@ -159,6 +159,24 @@ class DatabaseMemory(Database):
                 time_series_data[variable_name] = time_series_data[variable_name][end_timestamp_mask]
         return timestamps, time_series_data
 
+    def __iter__(self):
+        """
+        Create a DataQueueMemory from this database.
+
+        This method will include all data from the database in the data queue.
+        If you want to specify a time range, see DataQueue.from_database().
+
+        Returns:
+            (DataQueueMemory): Data queue containing the specified data from the database
+        """
+        timestamps, time_series_data = self.fetch_data()
+        return DataQueueMemory(
+            self.structure,
+            self.num_samples,
+            timestamps,
+            time_series_data
+        )
+
 class DataQueueMemory(DataQueue):
     """
     Implement a DataQueue in memory which supplies data sequentially for a series of timestamps.
