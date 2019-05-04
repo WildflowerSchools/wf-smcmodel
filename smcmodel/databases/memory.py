@@ -249,7 +249,10 @@ class DataQueueMemory(DataQueue):
             time_series_data
         )
 
-    def fetch_next_data(self):
+    def __iter__(self):
+        return self
+
+    def __next__(self):
         """
         Fetch data for the next timestamp.
 
@@ -269,7 +272,7 @@ class DataQueueMemory(DataQueue):
             (dict): Data associated with that timestamp
         """
         if self.next_data_pointer >= self.num_timestamps:
-            return None, None
+            raise StopIteration()
         else:
             timestamp = self.timestamps[self.next_data_pointer]
             single_time_data  = {}
