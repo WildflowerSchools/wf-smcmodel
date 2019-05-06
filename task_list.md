@@ -1,13 +1,8 @@
 # Task list
 
-* Maybe use consistent language for single sample, single time slice, multiple time slices
-* Consistently use to or not in conversion functions
 * Add num_samples to placeholder_dict()
 * Check keys in all functions that build/convert objects
 * Consider moving helper functions to top level
-* In array_dict_to_tensor_dict, convert to array first (and rename)
-* Get rid of trajectory functions
-* Call it single_time_data and time_series_data everywhere (instead of data and trajectory)
 * In simulate, do init and pull initial values in one run
 * Call them samples rather than particles
 * Add logging

@@ -185,20 +185,14 @@ class SMCModelGeneralTensorflow:
                 state_summary_database.write_data(next_timestamp_value, next_state_summary_value)
                 timestamp_value = next_timestamp_value
 
-def _placeholder_dict(structure):
+def _placeholder_dict(structure, num_samples = 1):
     placeholder_dict = {}
     for variable_name, variable_info in structure.items():
         placeholder_dict[variable_name] = tf.placeholder(
             dtype = smcmodel.shared_constants._dtypes[variable_info['type']]['tensorflow'],
-            shape = tuple([1]) + tuple(variable_info['shape'])
+            shape = tuple([num_samples]) + tuple(variable_info['shape'])
         )
     return placeholder_dict
-
-def _feed_dict(structure, tensor_dict, array_dict):
-    feed_dict = {}
-    for variable_name in structure.keys():
-        feed_dict[tensor_dict[variable_name]] = array_dict[variable_name]
-    return feed_dict
 
 def _to_array_dict(structure, input):
     array_dict = {}
@@ -209,7 +203,8 @@ def _to_array_dict(structure, input):
         )
     return array_dict
 
-def _array_dict_to_tensor_dict(structure, array_dict):
+def _to_tensor_dict(structure, input):
+    array_dict = _to_array_dict(structure, input)
     tensor_dict = {}
     for variable_name, variable_info in structure.items():
         tensor_dict[variable_name] = tf.constant(
@@ -218,28 +213,35 @@ def _array_dict_to_tensor_dict(structure, array_dict):
         )
     return array_dict
 
-def _get_variable_dict(structure, initial_values):
-    variable_dict = {}
-    for variable_name, variable_info in structure.items():
-        variable_dict[variable_name] = tf.get_variable(
-            name = variable_name,
-            dtype = smcmodel.shared_constants._dtypes[variable_info['type']]['tensorflow'],
-            initializer = initial_values[variable_name])
-    return variable_dict
-
-def _variable_dict_assign(structure, variable_dict, values):
-    assign_dict = {}
-    for variable_name in structure.keys():
-        assign_dict[variable_name] = variable_dict[variable_name].assign(values[variable_name])
-    return assign_dict
-
-def _array_dict_to_iterator_dict(structure, array_dict):
-    tensor_dict = _array_dict_to_tensor_dict(structure, array_dict)
+def _to_iterator_dict(structure, input):
+    tensor_dict = _to_tensor_dict(structure, input)
     iterator_dict={}
     for variable_name in structure.keys():
         dataset = tf.data.Dataset.from_tensor_slices(tensor_dict[variable_name])
         iterator_dict[variable_name] = dataset.make_one_shot_iterator()
     return iterator_dict
+
+def _feed_dict(structure, tensor_dict, input):
+    array_dict = _to_array_dict(structure, input)
+    feed_dict = {}
+    for variable_name in structure.keys():
+        feed_dict[tensor_dict[variable_name]] = array_dict[variable_name]
+    return feed_dict
+
+def _get_variable_dict(structure, initial_values_tensor_dict):
+    variable_dict = {}
+    for variable_name, variable_info in structure.items():
+        variable_dict[variable_name] = tf.get_variable(
+            name = variable_name,
+            dtype = smcmodel.shared_constants._dtypes[variable_info['type']]['tensorflow'],
+            initializer = initial_values_tensor_dict[variable_name])
+    return variable_dict
+
+def _variable_dict_assign(structure, variable_dict, values_tensor_dict):
+    assign_dict = {}
+    for variable_name in structure.keys():
+        assign_dict[variable_name] = variable_dict[variable_name].assign(values_tensor_dict[variable_name])
+    return assign_dict
 
 def _iterator_dict_get_next(structure, iterator_dict):
     tensor_dict = {}
