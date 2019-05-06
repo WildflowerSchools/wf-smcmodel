@@ -1,16 +1,21 @@
 # Task list
 
-* Use new datetime conversion functions
-* Move num_resample_indices into state summary
-* Figure out how to force assignment ops without fetching their outputs
-* Add explicit names to tensors and ops
-* Check dataflow graphs using tensorboard (are all objects of known size at graph specification time)
-* Add type and shape checking
+* Maybe use consistent language for single sample, single time slice, multiple time slices
+* Use new datetime conversion functions instead of datetimes_to_timestamps_array()
+* Call them timestamps rather than times or datetimes
+* Add num_samples to placeholder_dict()
+* Consistently use to or not in conversion functions
+* Check keys in all functions that build/convert objects
+* Consider moving helper functions to top level
+* In array_dict_to_tensor_dict, convert to array first (and rename)
+* Get rid of trajectory functions
+* Call it single_time_data and time_series_data everywhere (instead of data and trajectory)
+* In simulate, do init and pull initial values in one run
+* Call them samples rather than particles
 * Add logging
 * Add docstrings
 * Generate documentation
-* Make functions handle datetimes in an array of shapes/types/formats
-* Make functions handle observation trajectories in an array of shapes/types/formats
+* Add explicit names to tensors and ops
+* Check dataflow graphs using tensorboard (are all objects of known size at graph specification time)
+* Figure out how to force assignment ops without fetching their outputs
 * Consider adding num_samples argument to simulate()
-* Reconsider whether state trajectory and observation trajectory should be lists of dicts (vs. dicts of expanded arrays)
-* Consider creating new classes for state, observation, parameters

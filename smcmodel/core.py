@@ -103,6 +103,7 @@ class SMCModelGeneralTensorflow:
             initial_state_summary = self.state_summary(
                 initial_state,
                 initial_log_weights,
+                tf.zeros(shape = [num_particles], dtype = tf.int64),
                 parameters
             )
             # Define the persistent variables
@@ -141,6 +142,7 @@ class SMCModelGeneralTensorflow:
             next_state_summary = self.state_summary(
                 next_state,
                 next_log_weights,
+                resample_indices,
                 parameters
             )
             # Assign these values to the persistent variables so they become the inputs for the next time step
