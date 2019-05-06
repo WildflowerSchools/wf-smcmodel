@@ -82,7 +82,7 @@ class SMCModelGeneralTensorflow:
 
     def estimate_state_time_series(
         self,
-        num_particles,
+        num_samples,
         observation_data_queue,
         state_summary_database):
         # Build the dataflow graph
@@ -93,7 +93,7 @@ class SMCModelGeneralTensorflow:
             # Calculate the initial values for the persistent variables
             initial_observation = _placeholder_dict(self.observation_structure)
             initial_state = self.initial_model_sample(
-                num_particles,
+                num_samples,
                 parameters
             )
             initial_log_weights = self.observation_model_pdf(
@@ -104,7 +104,7 @@ class SMCModelGeneralTensorflow:
             initial_state_summary = self.state_summary(
                 initial_state,
                 initial_log_weights,
-                tf.zeros(shape = [num_particles], dtype = tf.int64),
+                tf.zeros(shape = [num_samples], dtype = tf.int64),
                 parameters
             )
             # Define the persistent variables
@@ -123,7 +123,7 @@ class SMCModelGeneralTensorflow:
             resample_indices = tf.squeeze(
                 tf.random.categorical(
                     [log_weights],
-                    num_particles
+                    num_samples
                 )
             )
             state_resampled = _resample_tensor_dict(
