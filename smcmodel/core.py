@@ -155,7 +155,7 @@ class SMCModelGeneralTensorflow:
         # Run the calcuations using the graph above
         with tf.Session(graph=state_trajectory_estimation_graph) as sess:
             # Calculate initial values and initialize the persistent variables
-            initial_time_value, initial_observation_value = observation_data_queue.fetch_next_data()
+            initial_time_value, initial_observation_value = next(observation_data_queue)
             initial_observation_feed_dict = _feed_dict(
                 self.observation_structure,
                 initial_observation,
@@ -167,10 +167,7 @@ class SMCModelGeneralTensorflow:
             state_summary_database.write_data(initial_time_value, initial_state_summary_value)
             # Calculate and store the state samples and log weights for all subsequent time steps
             time_value = initial_time_value
-            while True:
-                next_time_value, next_observation_value = observation_data_queue.fetch_next_data()
-                if next_time_value is None:
-                    break
+            for next_time_value, next_observation_value in observation_data_queue:
                 time_feed_dict = {time: time_value, next_time: next_time_value}
                 next_operation_feed_dict = _feed_dict(
                     self.observation_structure,
