@@ -28,6 +28,9 @@ class Database:
         names of structure. The values are Numpy arrays with shape (number of
         timestamps, number of samples at each timestamp, [shape of variable]).
 
+        If timestamps and time_series_data are specified, timestamps must be in
+        time order and order of data in time_series_data must match timestamps.
+
         If timestamps and time_series_data are not specified, initializes an
         empty database.
 
@@ -132,6 +135,9 @@ class DataQueue:
         The keys of time_series_data should match the variable names of
         structure. The values are Numpy arrays with shape (number of timestamps,
         number of samples at each timestamp, [shape of variable]).
+
+        Timestamps must be in time order and order of data in time_series_data
+        must match timestamps.
 
         Parameters:
             structure (dict): Structure of the object that the database is storing
