@@ -28,12 +28,12 @@ class SMCModelGeneralTensorflow:
         self.observation_model_pdf = observation_model_pdf
         self.state_summary = state_summary
 
-    def simulate_trajectory(self, timestamps, state_database, observation_database):
+    def simulate_time_series(self, timestamps, state_database, observation_database):
         # Convert timestamps to Numpy array of (micro)seconds since epoch
         timestamps = datetime_conversion.to_posix_timestamps(timestamps)
         # Build the dataflow graph
-        simulation_graph = tf.Graph()
-        with simulation_graph.as_default():
+        simulate_time_series_graph = tf.Graph()
+        with simulate_time_series_graph.as_default():
             # Sample the global parameters
             parameters = self.parameter_model_sample()
             # Calculate the initial values for the persistent variables
@@ -62,7 +62,7 @@ class SMCModelGeneralTensorflow:
                 )
         # Run the calcuations using the graph above
         num_timestamps = timestamps.shape[0]
-        with tf.Session(graph=simulation_graph) as sess:
+        with tf.Session(graph=simulate_time_series_graph) as sess:
             # Initialize the persistent variables
             sess.run(init)
             # Calculate and store the initial state and initial observation
@@ -80,14 +80,14 @@ class SMCModelGeneralTensorflow:
                 state_database.write_data(timestamps[timestamp_index], next_state_value)
                 observation_database.write_data(timestamps[timestamp_index], next_observation_value)
 
-    def estimate_state_trajectory(
+    def estimate_state_time_series(
         self,
         num_particles,
         observation_data_queue,
         state_summary_database):
         # Build the dataflow graph
-        state_trajectory_estimation_graph = tf.Graph()
-        with state_trajectory_estimation_graph.as_default():
+        state_time_series_estimation_graph = tf.Graph()
+        with state_time_series_estimation_graph.as_default():
             # Sample the global parameters
             parameters = self.parameter_model_sample()
             # Calculate the initial values for the persistent variables
@@ -156,7 +156,7 @@ class SMCModelGeneralTensorflow:
                 )
                 assign_log_weights = log_weights.assign(next_log_weights)
         # Run the calcuations using the graph above
-        with tf.Session(graph=state_trajectory_estimation_graph) as sess:
+        with tf.Session(graph=state_time_series_estimation_graph) as sess:
             # Calculate initial values and initialize the persistent variables
             initial_timestamp_value, initial_observation_value = next(observation_data_queue)
             initial_observation_feed_dict = _feed_dict(
@@ -259,8 +259,8 @@ def _resample_tensor_dict(structure, tensor_dict, resample_indices):
 def _tensor_list(tensor_dict):
     return list(tensor_dict.values())
 
-def _initialize_trajectory(num_timestamps, num_samples, structure, initial_values):
-    trajectory = {
+def _initialize_time_series(num_timestamps, num_samples, structure, initial_values):
+    time_series = {
         variable_name: np.zeros(
             (num_timestamps, num_samples) + tuple(variable_info['shape'])
         )
@@ -268,10 +268,10 @@ def _initialize_trajectory(num_timestamps, num_samples, structure, initial_value
         in structure.items()
     }
     for variable_name in structure.keys():
-        trajectory[variable_name][0] = initial_values[variable_name]
-    return trajectory
+        time_series[variable_name][0] = initial_values[variable_name]
+    return time_series
 
-def _extend_trajectory(trajectory, timestamp_index, structure, values):
+def _extend_time_series(time_series, timestamp_index, structure, values):
     for variable_name in structure.keys():
-        trajectory[variable_name][timestamp_index] = values[variable_name]
-    return trajectory
+        time_series[variable_name][timestamp_index] = values[variable_name]
+    return time_series

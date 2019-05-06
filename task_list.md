@@ -1,7 +1,6 @@
 # Task list
 
 * Maybe use consistent language for single sample, single time slice, multiple time slices
-* Call them timestamps rather than times or datetimes
 * Consistently use to or not in conversion functions
 * Add num_samples to placeholder_dict()
 * Check keys in all functions that build/convert objects
