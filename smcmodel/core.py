@@ -195,6 +195,8 @@ def _placeholder_dict(structure, num_samples = 1):
     return placeholder_dict
 
 def _to_array_dict(structure, input):
+    if set(input.keys()) != set(structure.keys()):
+        raise ValueError('Variable names in data don\'t match variable names specified in database structure')
     array_dict = {}
     for variable_name, variable_info in structure.items():
         array_dict[variable_name] = np.asarray(
@@ -204,6 +206,8 @@ def _to_array_dict(structure, input):
     return array_dict
 
 def _to_tensor_dict(structure, input):
+    if set(input.keys()) != set(structure.keys()):
+        raise ValueError('Variable names in data don\'t match variable names specified in database structure')
     array_dict = _to_array_dict(structure, input)
     tensor_dict = {}
     for variable_name, variable_info in structure.items():
@@ -214,6 +218,8 @@ def _to_tensor_dict(structure, input):
     return array_dict
 
 def _to_iterator_dict(structure, input):
+    if set(input.keys()) != set(structure.keys()):
+        raise ValueError('Variable names in data don\'t match variable names specified in database structure')
     tensor_dict = _to_tensor_dict(structure, input)
     iterator_dict={}
     for variable_name in structure.keys():
@@ -222,6 +228,8 @@ def _to_iterator_dict(structure, input):
     return iterator_dict
 
 def _feed_dict(structure, tensor_dict, input):
+    if set(input.keys()) != set(structure.keys()):
+        raise ValueError('Variable names in data don\'t match variable names specified in database structure')
     array_dict = _to_array_dict(structure, input)
     feed_dict = {}
     for variable_name in structure.keys():
@@ -229,6 +237,8 @@ def _feed_dict(structure, tensor_dict, input):
     return feed_dict
 
 def _get_variable_dict(structure, initial_values_tensor_dict):
+    if set(initial_values_tensor_dict.keys()) != set(structure.keys()):
+        raise ValueError('Variable names in data don\'t match variable names specified in database structure')
     variable_dict = {}
     for variable_name, variable_info in structure.items():
         variable_dict[variable_name] = tf.get_variable(
@@ -238,18 +248,26 @@ def _get_variable_dict(structure, initial_values_tensor_dict):
     return variable_dict
 
 def _variable_dict_assign(structure, variable_dict, values_tensor_dict):
+    if set(variable_dict.keys()) != set(structure.keys()):
+        raise ValueError('Variable names in variable dict don\'t match variable names specified in database structure')
+    if set(values_tensor_dict.keys()) != set(structure.keys()):
+        raise ValueError('Variable names in data don\'t match variable names specified in database structure')
     assign_dict = {}
     for variable_name in structure.keys():
         assign_dict[variable_name] = variable_dict[variable_name].assign(values_tensor_dict[variable_name])
     return assign_dict
 
 def _iterator_dict_get_next(structure, iterator_dict):
+    if set(iterator_dict.keys()) != set(structure.keys()):
+        raise ValueError('Variable names in iterator_dict don\'t match variable names specified in database structure')
     tensor_dict = {}
     for variable_name in structure.keys():
         tensor_dict[variable_name] = iterator_dict[variable_name].get_next()
     return tensor_dict
 
 def _resample_tensor_dict(structure, tensor_dict, resample_indices):
+    if set(tensor_dict.keys()) != set(structure.keys()):
+        raise ValueError('Variable names in tensor dict don\'t match variable names specified in database structure')
     tensor_dict_resampled = {}
     for variable_name in structure.keys():
         tensor_dict_resampled[variable_name] = tf.gather(
