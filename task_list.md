@@ -1,10 +1,9 @@
 # Task list
 
 * Maybe use consistent language for single sample, single time slice, multiple time slices
-* Use new datetime conversion functions instead of datetimes_to_timestamps_array()
 * Call them timestamps rather than times or datetimes
-* Add num_samples to placeholder_dict()
 * Consistently use to or not in conversion functions
+* Add num_samples to placeholder_dict()
 * Check keys in all functions that build/convert objects
 * Consider moving helper functions to top level
 * In array_dict_to_tensor_dict, convert to array first (and rename)

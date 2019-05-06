@@ -1,6 +1,7 @@
 import smcmodel.shared_constants
 import tensorflow as tf
 import numpy as np
+import datetime_conversion
 
 class SMCModelGeneralTensorflow:
 
@@ -29,7 +30,7 @@ class SMCModelGeneralTensorflow:
 
     def simulate_trajectory(self, datetimes, state_database, observation_database):
         # Convert datetimes to Numpy array of (micro)seconds since epoch
-        timestamps = _datetimes_to_timestamps_array(datetimes)
+        timestamps = datetime_conversion.to_posix_timestamps(datetimes)
         # Build the dataflow graph
         simulation_graph = tf.Graph()
         with simulation_graph.as_default():
@@ -216,13 +217,6 @@ def _array_dict_to_tensor_dict(structure, array_dict):
             dtype = smcmodel.shared_constants._dtypes[variable_info['type']]['tensorflow']
         )
     return array_dict
-
-def _datetimes_to_timestamps_array(datetimes):
-    timestamps_array = np.asarray(
-        [datetime.timestamp() for datetime in datetimes],
-        dtype = np.float64
-    )
-    return timestamps_array
 
 def _get_variable_dict(structure, initial_values):
     variable_dict = {}
