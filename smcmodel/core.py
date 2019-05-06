@@ -28,9 +28,9 @@ class SMCModelGeneralTensorflow:
         self.observation_model_pdf = observation_model_pdf
         self.state_summary = state_summary
 
-    def simulate_trajectory(self, datetimes, state_database, observation_database):
-        # Convert datetimes to Numpy array of (micro)seconds since epoch
-        timestamps = datetime_conversion.to_posix_timestamps(datetimes)
+    def simulate_trajectory(self, timestamps, state_database, observation_database):
+        # Convert timestamps to Numpy array of (micro)seconds since epoch
+        timestamps = datetime_conversion.to_posix_timestamps(timestamps)
         # Build the dataflow graph
         simulation_graph = tf.Graph()
         with simulation_graph.as_default():
@@ -44,12 +44,12 @@ class SMCModelGeneralTensorflow:
             # Initialize the persistent variables
             init = tf.global_variables_initializer()
             # Calculate the next time step in the simulation
-            time = tf.placeholder(dtype = tf.float64, shape = [], name = 'time')
-            next_time = tf.placeholder(dtype = tf.float64, shape = [], name = 'next_time')
+            timestamp = tf.placeholder(dtype = tf.float64, shape = [], name = 'timestamp')
+            next_timestamp = tf.placeholder(dtype = tf.float64, shape = [], name = 'next_timestamp')
             next_state = self.transition_model_sample(
                 state,
-                time,
-                next_time,
+                timestamp,
+                next_timestamp,
                 parameters)
             next_observation = self.observation_model_sample(next_state, parameters)
             # Assign these values to the persistent variables so they become the inputs for the next time step
@@ -71,11 +71,11 @@ class SMCModelGeneralTensorflow:
             observation_database.write_data(timestamps[0], initial_observation_value)
             # Calculate and store the state and observation for all subsequent time steps
             for timestamp_index in range(1, num_timestamps):
-                time_value = timestamps[timestamp_index - 1]
-                next_time_value = timestamps[timestamp_index]
+                timestamp_value = timestamps[timestamp_index - 1]
+                next_timestamp_value = timestamps[timestamp_index]
                 next_state_value, next_observation_value = sess.run(
                     [assign_state, next_observation],
-                    feed_dict = {time: time_value, next_time: next_time_value}
+                    feed_dict = {timestamp: timestamp_value, next_timestamp: next_timestamp_value}
                 )
                 state_database.write_data(timestamps[timestamp_index], next_state_value)
                 observation_database.write_data(timestamps[timestamp_index], next_observation_value)
@@ -117,8 +117,8 @@ class SMCModelGeneralTensorflow:
             # Initialize the persistent variables
             init = tf.global_variables_initializer()
             # Calculate the state samples and log weights for the next time step
-            time = tf.placeholder(dtype = tf.float64, shape = [], name = 'time')
-            next_time = tf.placeholder(dtype = tf.float64, shape = [], name = 'next_time')
+            timestamp = tf.placeholder(dtype = tf.float64, shape = [], name = 'timestamp')
+            next_timestamp = tf.placeholder(dtype = tf.float64, shape = [], name = 'next_timestamp')
             next_observation = _placeholder_dict(self.observation_structure)
             resample_indices = tf.squeeze(
                 tf.random.categorical(
@@ -132,8 +132,8 @@ class SMCModelGeneralTensorflow:
                 resample_indices)
             next_state = self.transition_model_sample(
                 state_resampled,
-                time,
-                next_time,
+                timestamp,
+                next_timestamp,
                 parameters
             )
             next_log_weights = self.observation_model_pdf(
@@ -158,7 +158,7 @@ class SMCModelGeneralTensorflow:
         # Run the calcuations using the graph above
         with tf.Session(graph=state_trajectory_estimation_graph) as sess:
             # Calculate initial values and initialize the persistent variables
-            initial_time_value, initial_observation_value = next(observation_data_queue)
+            initial_timestamp_value, initial_observation_value = next(observation_data_queue)
             initial_observation_feed_dict = _feed_dict(
                 self.observation_structure,
                 initial_observation,
@@ -167,23 +167,23 @@ class SMCModelGeneralTensorflow:
             initial_state_summary_value, _ = sess.run(
                 [initial_state_summary, init],
                 feed_dict = initial_observation_feed_dict)
-            state_summary_database.write_data(initial_time_value, initial_state_summary_value)
+            state_summary_database.write_data(initial_timestamp_value, initial_state_summary_value)
             # Calculate and store the state samples and log weights for all subsequent time steps
-            time_value = initial_time_value
-            for next_time_value, next_observation_value in observation_data_queue:
-                time_feed_dict = {time: time_value, next_time: next_time_value}
+            timestamp_value = initial_timestamp_value
+            for next_timestamp_value, next_observation_value in observation_data_queue:
+                timestamp_feed_dict = {timestamp: timestamp_value, next_timestamp: next_timestamp_value}
                 next_operation_feed_dict = _feed_dict(
                     self.observation_structure,
                     next_observation,
                     next_observation_value
                 )
-                combined_feed_dict = {**time_feed_dict, **next_operation_feed_dict}
+                combined_feed_dict = {**timestamp_feed_dict, **next_operation_feed_dict}
                 next_state_summary_value, _, _ = sess.run(
                     [next_state_summary, assign_state, assign_log_weights],
                     feed_dict = combined_feed_dict
                 )
-                state_summary_database.write_data(next_time_value, next_state_summary_value)
-                time_value = next_time_value
+                state_summary_database.write_data(next_timestamp_value, next_state_summary_value)
+                timestamp_value = next_timestamp_value
 
 def _placeholder_dict(structure):
     placeholder_dict = {}
