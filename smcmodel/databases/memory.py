@@ -8,6 +8,8 @@ from . import Database
 from . import DataQueue
 import datetime_conversion
 import numpy as np
+import pickle
+import os
 
 class DatabaseMemory(Database):
     """
@@ -161,6 +163,30 @@ class DatabaseMemory(Database):
             for variable_name in self.structure.keys():
                 time_series_data[variable_name] = time_series_data[variable_name][end_timestamp_mask]
         return timestamps, time_series_data
+
+    def to_pickle(self, directory, filename, start_timestamp = None, end_timestamp = None):
+        timestamps, time_series_data = self.fetch_data(start_timestamp, end_timestamp)
+        pickle_data = {
+            'structure': self.structure,
+            'num_samples': self.num_samples,
+            'timestamps': timestamps,
+            'time_series_data': time_series_data
+        }
+        path = os.path.join(directory, filename)
+        with open(path, 'wb') as file:
+            pickle.dump(pickle_data, file)
+
+    @classmethod
+    def from_pickle(cls, directory, filename):
+        path = os.path.join(directory, filename)
+        with open(path, 'rb') as file:
+            pickle_data = pickle.load(file)
+        return cls(
+            structure = pickle_data['structure'],
+            num_samples = pickle_data['num_samples'],
+            timestamps = pickle_data['timestamps'],
+            time_series_data = pickle_data['time_series_data']
+        )
 
     def __iter__(self):
         """
