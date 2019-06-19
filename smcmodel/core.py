@@ -1,6 +1,7 @@
 import smcmodel.shared_constants
 import tensorflow as tf
 import numpy as np
+import tqdm
 import datetime_conversion
 
 class SMCModelGeneralTensorflow:
@@ -84,7 +85,9 @@ class SMCModelGeneralTensorflow:
         self,
         num_samples,
         observation_data_queue,
-        state_summary_database):
+        state_summary_database,
+        progress_bar = False,
+        num_observations = None):
         # Build the dataflow graph
         state_time_series_estimation_graph = tf.Graph()
         with state_time_series_estimation_graph.as_default():
@@ -170,6 +173,13 @@ class SMCModelGeneralTensorflow:
             state_summary_database.write_data(initial_timestamp_value, initial_state_summary_value)
             # Calculate and store the state samples and log weights for all subsequent time steps
             timestamp_value = initial_timestamp_value
+            # Set up the progress bar (if set)
+            if progress_bar:
+                if num_observations is not None:
+                    remaining_iterations = num_observations - 1
+                else:
+                    remaining_iterations = None
+                t = tqdm.tqdm(total = remaining_iterations)
             for next_timestamp_value, next_observation_value in observation_data_queue:
                 timestamp_feed_dict = {timestamp: timestamp_value, next_timestamp: next_timestamp_value}
                 next_operation_feed_dict = _feed_dict(
@@ -184,6 +194,12 @@ class SMCModelGeneralTensorflow:
                 )
                 state_summary_database.write_data(next_timestamp_value, next_state_summary_value)
                 timestamp_value = next_timestamp_value
+                # Update the progress bar (if set)
+                if progress_bar:
+                    t.update()
+            # Close the progress bar (if set)
+            if progress_bar:
+                t.close()
 
 def _placeholder_dict(structure, num_samples = 1):
     placeholder_dict = {}
