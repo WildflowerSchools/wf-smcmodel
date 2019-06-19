@@ -170,7 +170,10 @@ class SMCModelGeneralTensorflow:
             state_summary_database.write_data(initial_timestamp_value, initial_state_summary_value)
             # Calculate and store the state samples and log weights for all subsequent time steps
             timestamp_value = initial_timestamp_value
+            timestamp_index = 1
             for next_timestamp_value, next_observation_value in observation_data_queue:
+                if timestamp_index % 1000 == 0:
+                    print(timestamp_index)
                 timestamp_feed_dict = {timestamp: timestamp_value, next_timestamp: next_timestamp_value}
                 next_operation_feed_dict = _feed_dict(
                     self.observation_structure,
@@ -184,6 +187,7 @@ class SMCModelGeneralTensorflow:
                 )
                 state_summary_database.write_data(next_timestamp_value, next_state_summary_value)
                 timestamp_value = next_timestamp_value
+                timestamp_index += 1
 
 def _placeholder_dict(structure, num_samples = 1):
     placeholder_dict = {}
