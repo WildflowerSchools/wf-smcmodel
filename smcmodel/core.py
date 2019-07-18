@@ -6,29 +6,6 @@ import datetime_conversion
 
 class SMCModelGeneralTensorflow:
 
-    def __init__(
-        self,
-        parameter_structure = None,
-        state_structure = None,
-        observation_structure = None,
-        state_summary_structure = None,
-        parameter_model_sample = None,
-        initial_model_sample = None,
-        transition_model_sample = None,
-        observation_model_sample = None,
-        observation_model_pdf = None,
-        state_summary = None):
-        self.parameter_structure = parameter_structure
-        self.state_structure = state_structure
-        self.observation_structure = observation_structure
-        self.state_summary_structure = state_summary_structure
-        self.parameter_model_sample = parameter_model_sample
-        self.initial_model_sample = initial_model_sample
-        self.transition_model_sample = transition_model_sample
-        self.observation_model_sample = observation_model_sample
-        self.observation_model_pdf = observation_model_pdf
-        self.state_summary = state_summary
-
     def simulate_time_series(self, timestamps, state_database, observation_database):
         # Convert timestamps to Numpy array of (micro)seconds since epoch
         timestamps = datetime_conversion.to_posix_timestamps(timestamps)
