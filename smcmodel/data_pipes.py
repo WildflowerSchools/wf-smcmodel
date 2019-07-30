@@ -2,6 +2,9 @@
 Define pipes for reading and writing data while performing sequential Monte
 Carlo (SMC) simulation and inference.
 """
+import datetime
+import dateutil.parser
+import numpy as np
 
 class DataSource:
     """
@@ -30,6 +33,9 @@ class DataSource:
             (float): Timestamp of the data encoded as seconds since Unix epoch
             (dict): Data associated with that timestamp
         """
+        return self._next()
+
+    def _next(self):
         raise NotImplementedError('Method must be implemented by derived class')
 
 class DataDestination:
@@ -41,9 +47,7 @@ class DataDestination:
         """
         Write data with a timestamp.
 
-        The timestamp should be a Python datetime object (timezone-aware or
-        timezone-naive), a string in ISO format (timezone-aware or
-        timezone-naive), or seconds since the Unix epoch (float or int).
+        Timestamp should in seconds since epoch.
 
         The keys of single_time_data should be the variable names associated
         with the type of data that is being pushed out (e.g., if the database is
@@ -53,7 +57,10 @@ class DataDestination:
         variable]).
 
         Parameters:
-            timestamp (datetime): Timestamp associated with the data
+            timestamp (float): Timestamp associated with the data
             single_time_data (dict): Data for that timestamp
         """
+        return self._write_data(timestamp, single_time_data)
+
+    def _write_data(self, timestamp, single_time_data):
         raise NotImplementedError('Method must be implemented by derived class')
