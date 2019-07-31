@@ -113,27 +113,6 @@ class DataSourceArrayDict(DataSource):
             self.array_dict = array_dict_parsed
             self.timestamp_index = 0
 
-    def __next__(self):
-        """
-        Fetch data for the next timestamp.
-
-        Data will be fetched in time order.
-
-        The keys of the returned data are the variable names associated with the
-        type of data that is being pulled in (e.g., if we are pulling in
-        observation data, the keys might be 'rssi' and 'acceleration'). The
-        values are Numpy arrays with shape (number of samples at each timestep,
-        [shape of variable]).
-
-        Once all data in the queue has been fetched, method will raise a
-        StopIteration exception.
-
-        Returns:
-            (float): Timestamp of the data encoded as seconds since Unix epoch
-            (dict): Data associated with that timestamp
-        """
-        return self._next()
-
     def _next(self):
         if self.timestamp_index >= self.num_timestamps:
             raise StopIteration()
