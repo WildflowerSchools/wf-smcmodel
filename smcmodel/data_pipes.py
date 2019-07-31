@@ -6,6 +6,8 @@ import smcmodel.shared_constants
 import datetime
 import dateutil.parser
 import numpy as np
+import os
+import pickle
 
 
 class DataSource:
@@ -184,3 +186,17 @@ class DataDestinationArrayDict(DataDestination):
                 self.array_dict[variable_name],
                 np.expand_dims(variable_value_parsed, axis = 0)
             ))
+
+    # This is a legacy output structure for legacy visualization methods. We can
+    # get rid of this when we finish rewriting all of our visualization methods
+    # to use our new database connection objects
+    def to_pickle(self, directory, filename):
+        pickle_data = {
+            'structure': self.structure,
+            'num_samples': self.num_samples,
+            'timestamps': self.timestamps,
+            'time_series_data': self.array_dict
+        }
+        path = os.path.join(directory, filename)
+        with open(path, 'wb') as file:
+            pickle.dump(pickle_data, file)
