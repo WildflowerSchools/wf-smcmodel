@@ -241,3 +241,19 @@ class DataDestinationArrayDict(DataDestination):
         path = os.path.join(directory, filename)
         with open(path, 'wb') as file:
             pickle.dump(pickle_data, file)
+
+    # This is a legacy input structure for legacy visualization methods. We can
+    # get rid of this when we finish rewriting all of our visualization methods
+    # to use our new database connection objects
+    @classmethod
+    def from_pickle(cls, directory, filename):
+        path = os.path.join(directory, filename)
+        with open(path, 'rb') as file:
+            pickle_data = pickle.load(file)
+        data_destination = cls(
+            structure = pickle_data['structure'],
+            num_samples = pickle_data['num_samples']
+        )
+        data_destination.timestamps = pickle_data['timestamps']
+        data_destination.array_dict = pickle_data['time_series_data']
+        return data_destination
