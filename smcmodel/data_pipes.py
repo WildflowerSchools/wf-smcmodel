@@ -74,7 +74,7 @@ class DataSourceArrayDict(DataSource):
 
     def __init__(self, structure, num_samples, timestamps, array_dict):
         try:
-            timestamps_parsed = np.squeeze(np.asarray(timestamps, dtype = np.float))
+            timestamps_parsed = np.asarray(timestamps, dtype = np.float)
         except:
             raise ValueError('Timestamps could not be parsed as an array of floats')
         if timestamps_parsed.ndim != 1:
@@ -123,3 +123,64 @@ class DataSourceArrayDict(DataSource):
                 single_time_data[variable_name] = self.array_dict[variable_name][self.timestamp_index]
             self.timestamp_index += 1
             return timestamp, single_time_data
+
+class DataDestinationArrayDict(DataDestination):
+    """
+    Pipe for pushing data out of the inference engine into a dict of arrays.
+    """
+
+    def __init__(self, structure, num_samples):
+        self.timestamps = np.empty(shape = (0,), dtype = np.float)
+        self.array_dict = {}
+        for variable_name in structure.keys():
+            variable_type = structure[variable_name]['type']
+            variable_shape = structure[variable_name]['shape']
+            variable_dtype_numpy = smcmodel.shared_constants._dtypes[variable_type]['numpy']
+            array_shape = (0, num_samples) + tuple(variable_shape)
+            self.array_dict[variable_name] = np.empty(
+                shape = array_shape,
+                dtype = variable_dtype_numpy
+            )
+        self.structure = structure
+        self.num_samples = num_samples
+
+    def _write_data(self, timestamp, single_time_data):
+        try:
+            timestamp_parsed = np.asarray(timestamp, dtype = np.float)
+        except:
+            raise ValueError('Timestamp could not be parsed as a float')
+        if timestamp_parsed.size != 1:
+            raise ValueError('Expected a single timestamp but received {}'.format(timestamp_parsed.size))
+        self.timestamps = np.concatenate((
+            self.timestamps,
+            np.expand_dims(timestamp_parsed, axis = 0)
+        ))
+        for variable_name in self.structure.keys():
+            variable_type = self.structure[variable_name]['type']
+            variable_shape = self.structure[variable_name]['shape']
+            variable_dtype_numpy = smcmodel.shared_constants._dtypes[variable_type]['numpy']
+            if variable_name not in single_time_data.keys():
+                raise ValueError('Variable {} specified in structure but not found in data')
+            variable_value = single_time_data[variable_name]
+            try:
+                variable_value_parsed = np.asarray(
+                    variable_value,
+                    dtype = variable_dtype_numpy
+                )
+            except:
+                raise ValueError('Variable {} cannot be parsed as array of dtype {}'.format(
+                    variable_name,
+                    variable_dtype_numpy
+                ))
+            expected_array_shape = (self.num_samples,) + tuple(variable_shape)
+            array_shape = variable_value_parsed.shape
+            if array_shape != expected_array_shape:
+                raise ValueError('Expected shape {} for {} but received shape {}'.format(
+                    expected_array_shape,
+                    variable_name,
+                    array_shape
+                ))
+            self.array_dict[variable_name] = np.concatenate((
+                self.array_dict[variable_name],
+                np.expand_dims(variable_value_parsed, axis = 0)
+            ))
