@@ -75,6 +75,29 @@ class DataSourceArrayDict(DataSource):
     """
 
     def __init__(self, structure, num_samples, timestamps, array_dict):
+        """
+        Constructor for DataSourceArrayDict.
+
+        The keys of structure should be the variable names associated with the
+        type of data that is being pulled in (e.g., if we are pulling in
+        observation data, the keys might be 'rssi' and 'acceleration'). The
+        values should be dicts containing the structure info for that those
+        variables: 'shape' and 'type' (see examples of implemented SMCModel
+        class for examples of this structure).
+
+        Timestamps should be a one-dimensional array-like vector of floats
+        (seconds since epoch).
+
+        The keys of array_dict should match the variable names of structure. The
+        values are Numpy arrays with shape (number of timestamps, number of
+        samples at each timestamp, [shape of variable]).
+
+        Parameters:
+            structure (dict): Structure of the data that is being pulled in
+            num_samples (int): Number of samples at each timestamp
+            timestamps (array of float): Timestamps for the data
+            array_dict (dict): Data associated with these timestamps
+        """
         try:
             timestamps_parsed = np.asarray(timestamps, dtype = np.float)
         except:
@@ -115,6 +138,7 @@ class DataSourceArrayDict(DataSource):
             self.array_dict = array_dict_parsed
             self.timestamp_index = 0
 
+    # Internal method for fetching next data slice (see parent class)
     def _next(self):
         if self.timestamp_index >= self.num_timestamps:
             raise StopIteration()
@@ -132,6 +156,22 @@ class DataDestinationArrayDict(DataDestination):
     """
 
     def __init__(self, structure, num_samples):
+        """
+        Constructor for DataDestinationArrayDict.
+
+        Initializes an empty data object.
+
+        The keys of structure should be the variable names associated with the
+        type of data that is being pushed out (e.g., if the database is storing
+        data for the state of the system, keys might be 'positions' and
+        'velocities'). The values should be dicts containing the structure info
+        for that those variables: 'shape' and 'type' (see examples of
+        implemented SMCModel class for examples of this structure).
+
+        Parameters:
+            structure (dict): Structure of the data that is being pushed out
+            num_samples (int): Number of samples at each timestamp
+        """
         self.timestamps = np.empty(shape = (0,), dtype = np.float)
         self.array_dict = {}
         for variable_name in structure.keys():
@@ -146,6 +186,7 @@ class DataDestinationArrayDict(DataDestination):
         self.structure = structure
         self.num_samples = num_samples
 
+    # Internal method for writing data (see parent class)
     def _write_data(self, timestamp, single_time_data):
         try:
             timestamp_parsed = np.asarray(timestamp, dtype = np.float)
