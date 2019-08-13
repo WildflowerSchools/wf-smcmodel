@@ -203,7 +203,7 @@ class DataDestinationArrayDict(DataDestination):
             variable_shape = self.structure[variable_name]['shape']
             variable_dtype_numpy = smcmodel.shared_constants._dtypes[variable_type]['numpy']
             if variable_name not in single_time_data.keys():
-                raise ValueError('Variable {} specified in structure but not found in data')
+                raise ValueError('Variable {} specified in structure but not found in data'.format(variable_name))
             variable_value = single_time_data[variable_name]
             try:
                 variable_value_parsed = np.asarray(
