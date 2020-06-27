@@ -29,7 +29,7 @@ setup(
     include_package_data=True,
     description='Provide estimation and simulation capabilities for sequential Monte Carlo (SMC) models',
     long_description=open('README.md').read(),
-    url='https://github.com/WildflowerSchools/smcmodel',
+    url='https://github.com/WildflowerSchools/wf-smcmodel',
     author='Theodore Quinn',
     author_email='ted.quinn@wildflowerschools.org',
     install_requires=BASE_DEPENDENCIES,
